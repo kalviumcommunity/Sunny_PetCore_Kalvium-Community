@@ -2,7 +2,7 @@
 
 # PetCore — Centralized Veterinary Health Records
 
-**Version:** 1.0  
+**Version:** 1.1  
 **Status:** Draft  
 **Platform:** Mobile Application  
 **Technology:** Dart, Flutter, Firebase Auth, Cloud Firestore, Firebase Storage
@@ -36,7 +36,18 @@ The application centralizes vaccination history, treatment notes, prescriptions,
 
 # 2. Problem Statement
 
-A chain of veterinary clinics operates across multiple branches, but each clinic maintains its own records for vaccination history and treatment notes. When a pet owner visits a different branch, the attending veterinarian has no access to prior history, increasing the risk of duplicate medication and missed follow-ups.
+A chain of veterinary clinics operates across **[X] branches**, but each clinic maintains its own records for vaccination history and treatment notes. When a pet owner visits a different branch, the attending veterinarian may have no access to prior history.
+
+The current problem should be quantified using a verified baseline before launch:
+
+| Problem Area | Current Baseline | Measurement Method |
+|---|---:|---|
+| Number of clinic branches | **[X] branches** | Confirm with clinic management |
+| Repeat/cross-branch visits affected by missing records | **[Y]%** | Audit a defined sample of recent visits |
+| Average time lost retrieving or reconstructing prior records | **[Z] minutes per affected visit** | Time a sample of affected consultations |
+| Duplicate-medication incidents linked to unavailable prior records | **[N] incidents per month** | Review incident/medical records |
+
+These values must be populated from actual clinic records or a documented baseline study; they are not assumed product metrics.
 
 This fragmented record-keeping can result in:
 
@@ -130,6 +141,19 @@ Pet-owner-facing functionality is not required for the initial MVP unless specif
 | Pet Owners | End users | Ensure continuity of their pet's healthcare |
 | Administrators | System owners | Manage users, branches, and permissions |
 | Development Team | Product builders | Design, build, test, and maintain the application |
+
+### Launch Approvers
+
+The following named individuals must provide sign-off before the MVP is launched:
+
+| Approver | Name | Required Sign-off |
+|---|---|---|
+| Product Owner | **[Name to be confirmed]** | Product scope, acceptance criteria, and launch readiness |
+| Clinical/Veterinary Lead | **[Name to be confirmed]** | Veterinary workflow, medical-record fields, and clinical usability |
+| Technical Lead | **[Name to be confirmed]** | Architecture, security, data migration, and production readiness |
+| Clinic Operations Lead | **[Name to be confirmed]** | Branch workflow, staff adoption, and operational readiness |
+
+No production launch should proceed until all required approvers have explicitly signed off.
 
 ---
 
@@ -596,7 +620,7 @@ As a veterinarian, I want to search for a pet using its unique ID, so that I can
 
 ## US-02
 
-As a veterinarian, I want to view previous treatments, so that I can review what treatment has already been provided.
+As a veterinarian, I want to view previous treatments, so that I can make the current consultation with awareness of the pet's treatment history.
 
 ## US-03
 
@@ -608,7 +632,7 @@ As a veterinarian, I want to add consultation notes, so that the next authorized
 
 ## US-05
 
-As clinic staff, I want to register a new pet and associate it with its owner, so that the clinic can maintain a centralized record.
+As clinic staff, I want to register a new pet and associate it with its owner, so that the pet can be uniquely identified and its future medical records can be linked to the correct owner.
 
 ## US-06
 
@@ -645,6 +669,7 @@ As a clinic manager, I want medical records to show the branch and veterinarian 
 - Veterinarian dashboard
 - Firebase Storage integration
 - Firestore database
+- Existing-record migration planning and validation
 
 ## Out of Scope — V1
 
@@ -896,6 +921,37 @@ These targets are project targets, not measurements of the current clinic proces
 
 ---
 
+# 31. Data Migration
+
+Existing branch-level pet and medical records must be accounted for before PetCore is launched.
+
+### Migration Requirements
+
+- Identify all existing record sources used by each branch.
+- Determine which existing records are eligible for migration into PetCore.
+- Define a common data format for owner, pet, vaccination, treatment, prescription, consultation, and document records.
+- Map existing branch records to the PetCore owner, pet, branch, and medical-record structures.
+- Resolve duplicate pet and owner records before importing them.
+- Preserve the original branch association and available historical dates for migrated records.
+- Validate migrated records against the source records before they become available for clinical use.
+- Record migration status and exceptions for records that cannot be migrated automatically.
+- Maintain a backup or read-only copy of the original records during the migration and validation period.
+- Complete migration validation and obtain the required sign-off before relying on migrated records in production.
+
+### Migration Acceptance Criteria
+
+The migration is considered ready when:
+
+- Existing branch data sources have been inventoried.
+- Migration mappings have been reviewed and approved.
+- Duplicate and conflicting records have a documented resolution process.
+- A test migration has been completed successfully.
+- Migrated records have been sampled and reconciled against their source records.
+- Migration exceptions are documented and assigned for resolution.
+- The Product Owner, Clinical/Veterinary Lead, Technical Lead, and Clinic Operations Lead have approved the migration for launch.
+
+---
+
 # 31. Assumptions
 
 The project currently assumes:
@@ -956,6 +1012,9 @@ The MVP will be considered complete when:
 - [ ] Authorized users from another branch can access records.
 - [ ] Unauthorized users cannot access restricted records.
 - [ ] Data persists correctly in Firebase.
+- [ ] Existing branch records included in the migration scope are migrated and validated.
+- [ ] Migration exceptions are documented and assigned for resolution.
+- [ ] Required launch approvers have signed off.
 - [ ] The primary search-to-history-to-consultation workflow works on a physical device or emulator.
 
 ---
