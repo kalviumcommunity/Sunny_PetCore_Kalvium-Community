@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/owner_model.dart';
 import '../services/firestore_service.dart';
+import 'owner_profile_screen.dart';
+import 'owner_registration_screen.dart';
 
+// Owner Screen displaying all registered owners and a button to register new owners.
 class OwnerScreen extends StatefulWidget {
   final FirestoreService firestoreService;
 
@@ -34,64 +37,22 @@ class _OwnerScreenState extends State<OwnerScreen> {
     }
   }
 
-  void _showAddOwnerDialog() {
-    final nameController = TextEditingController();
-    final phoneController = TextEditingController();
-    final emailController = TextEditingController();
-    final addressController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add Owner'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Name'),
-              ),
-              TextField(
-                controller: phoneController,
-                decoration: const InputDecoration(labelText: 'Phone'),
-                keyboardType: TextInputType.phone,
-              ),
-              TextField(
-                controller: emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              TextField(
-                controller: addressController,
-                decoration: const InputDecoration(labelText: 'Address'),
-              ),
-            ],
-          ),
+  void _navigateToRegistration() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OwnerRegistrationScreen(
+          firestoreService: widget.firestoreService,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.trim().isEmpty) return;
+      ),
+    ).then((_) => _fetchOwners());
+  }
 
-              final newOwner = OwnerModel(
-                name: nameController.text.trim(),
-                phone: phoneController.text.trim(),
-                email: emailController.text.trim(),
-                address: addressController.text.trim(),
-              );
-
-              await widget.firestoreService.addOwner(newOwner);
-              if (ctx.mounted) Navigator.pop(ctx);
-              _fetchOwners();
-            },
-            child: const Text('Save'),
-          ),
-        ],
+  void _navigateToProfile(OwnerModel owner) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OwnerProfileScreen(owner: owner),
       ),
     );
   }
@@ -105,7 +66,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _owners.isEmpty
-              ? const Center(child: Text('No owners added yet.'))
+              ? const Center(child: Text('No owners registered yet.'))
               : ListView.builder(
                   itemCount: _owners.length,
                   itemBuilder: (context, index) {
@@ -120,12 +81,14 @@ class _OwnerScreenState extends State<OwnerScreen> {
                           'Phone: ${owner.phone}\nEmail: ${owner.email}\nAddress: ${owner.address}',
                         ),
                         isThreeLine: true,
+                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                        onTap: () => _navigateToProfile(owner),
                       ),
                     );
                   },
                 ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddOwnerDialog,
+        onPressed: _navigateToRegistration,
         child: const Icon(Icons.add),
       ),
     );
