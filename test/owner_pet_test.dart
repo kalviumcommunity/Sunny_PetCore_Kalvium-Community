@@ -2,6 +2,7 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:petcore/models/owner_model.dart';
 import 'package:petcore/models/pet_model.dart';
+import 'package:petcore/models/user_model.dart';
 import 'package:petcore/services/firestore_service.dart';
 
 void main() {
@@ -65,5 +66,23 @@ void main() {
     expect(pets.first.weight, 24.5);
     expect(pets.first.color, 'Brown');
     expect(pets.first.ownerId, 'OWNER-123');
+  });
+
+  test('User profile preserves role and branch data', () {
+    const user = UserModel(
+      id: 'user-001',
+      name: 'Dr. Maya Singh',
+      email: 'maya@example.com',
+      role: 'VETERINARIAN',
+      branchId: 'branch-001',
+    );
+
+    final restored = UserModel.fromMap(user.toMap(), user.id);
+
+    expect(restored.id, 'user-001');
+    expect(restored.name, 'Dr. Maya Singh');
+    expect(restored.email, 'maya@example.com');
+    expect(restored.role, 'VETERINARIAN');
+    expect(restored.branchId, 'branch-001');
   });
 }

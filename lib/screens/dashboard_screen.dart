@@ -5,6 +5,7 @@ import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import 'owner_screen.dart';
 import 'pet_screen.dart';
+import 'user_management_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final AuthService authService;
@@ -31,6 +32,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _DashboardHome(user: widget.firebaseUser),
       OwnerScreen(firestoreService: widget.firestoreService),
       PetScreen(firestoreService: widget.firestoreService),
+      UserManagementScreen(
+        authService: widget.authService,
+        firebaseUser: widget.firebaseUser,
+      ),
     ];
 
     return Scaffold(
@@ -52,6 +57,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           NavigationDestination(icon: Icon(Icons.dashboard), label: 'Dashboard'),
           NavigationDestination(icon: Icon(Icons.person), label: 'Owners'),
           NavigationDestination(icon: Icon(Icons.pets), label: 'Pets'),
+          NavigationDestination(icon: Icon(Icons.group), label: 'Users'),
         ],
       ),
     );
@@ -82,7 +88,7 @@ class _DashboardHome extends StatelessWidget {
               leading: Icon(Icons.info_outline),
               title: Text('Phase 1 complete'),
               subtitle: Text(
-                'Authentication and protected navigation are active.',
+                'Authentication, profiles, and protected navigation are active.',
               ),
             ),
           ),

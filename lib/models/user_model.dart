@@ -31,4 +31,19 @@ class UserModel {
       branchId: map['branchId'] as String? ?? '',
     );
   }
+
+  UserModel copyWith({
+    String? name,
+    String? email,
+    String? role,
+    String? branchId,
+  }) {
+    return UserModel(
+      id: id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      role: role ?? this.role,
+      branchId: branchId ?? this.branchId,
+    );
+  }
 }
