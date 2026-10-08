@@ -23,3 +23,7 @@ If Firebase is not configured, the app displays a setup error instead of using f
 The app listens to Firebase Authentication state changes on startup. Signed-out users can only see the login screen; signed-in users are routed to the protected dashboard. The dashboard logout action returns the user to login, and Firebase preserves the authenticated session between app launches according to its platform defaults.
 
 Login validates required fields locally and displays specific feedback for invalid credentials, disabled accounts, network failures, and rate limiting. Authentication-stream failures provide a retry action.
+
+## Phase 3 User Management
+
+After authentication, PetCore creates a `users/{uid}` profile containing the user's name, email, role, and branch ID. The protected Users screen lists stored profiles and lets the signed-in user update their name, role, and branch assignment. Role-based restrictions are intentionally reserved for Phase 4.

@@ -51,5 +51,29 @@ class AuthService {
     return user;
   }
 
+  Future<UserModel?> getUserProfile(String userId) async {
+    final snapshot = await _db.collection('users').doc(userId).get();
+    final data = snapshot.data();
+    return snapshot.exists && data != null
+        ? UserModel.fromMap(data, snapshot.id)
+        : null;
+  }
+
+  Future<List<UserModel>> getUserProfiles() async {
+    final snapshot = await _db.collection('users').orderBy('email').get();
+    return snapshot.docs
+        .map((doc) => UserModel.fromMap(doc.data(), doc.id))
+        .toList();
+  }
+
+  Future<void> updateUserProfile(UserModel user) async {
+    await _db.collection('users').doc(user.id).set(user.toMap());
+
+    if (_auth.currentUser?.uid == user.id &&
+        _auth.currentUser?.displayName != user.name) {
+      await _auth.currentUser?.updateDisplayName(user.name);
+    }
+  }
+
   Future<void> signOut() => _auth.signOut();
 }
