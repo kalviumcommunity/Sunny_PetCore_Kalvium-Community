@@ -27,6 +27,10 @@ class AuthGate extends StatelessWidget {
           );
         }
 
+        if (snapshot.hasError) {
+          return _AuthErrorScreen(onRetry: () => _refreshAuthState(context));
+        }
+
         if (snapshot.data == null) {
           return LoginScreen(authService: authService);
         }
@@ -37,6 +41,52 @@ class AuthGate extends StatelessWidget {
           firebaseUser: snapshot.data!,
         );
       },
+    );
+  }
+
+  void _refreshAuthState(BuildContext context) {
+    // Rebuilding the gate lets the auth stream retry after a transient error.
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => AuthGate(
+          authService: authService,
+          firestoreService: firestoreService,
+        ),
+      ),
+    );
+  }
+}
+
+class _AuthErrorScreen extends StatelessWidget {
+  final VoidCallback onRetry;
+
+  const _AuthErrorScreen({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cloud_off, size: 48),
+              const SizedBox(height: 16),
+              const Text(
+                'We could not check your sign-in session.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Try again'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

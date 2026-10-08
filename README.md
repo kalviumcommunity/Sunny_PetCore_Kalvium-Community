@@ -17,3 +17,9 @@ Before running the app:
 After the first successful sign-in, PetCore creates a document in the `users` collection using the Firebase user ID. New profiles currently receive the temporary default role `CLINIC STAFF` and an empty `branchId`; role and branch administration belongs to later phases.
 
 If Firebase is not configured, the app displays a setup error instead of using fake in-memory data.
+
+## Phase 2 Session Management
+
+The app listens to Firebase Authentication state changes on startup. Signed-out users can only see the login screen; signed-in users are routed to the protected dashboard. The dashboard logout action returns the user to login, and Firebase preserves the authenticated session between app launches according to its platform defaults.
+
+Login validates required fields locally and displays specific feedback for invalid credentials, disabled accounts, network failures, and rate limiting. Authentication-stream failures provide a retry action.

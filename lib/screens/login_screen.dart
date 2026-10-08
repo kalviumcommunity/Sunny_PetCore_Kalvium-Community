@@ -40,9 +40,13 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text,
       );
     } on FirebaseAuthException catch (error) {
-      setState(() => _errorMessage = _messageForAuthError(error.code));
+      if (mounted) {
+        setState(() => _errorMessage = _messageForAuthError(error.code));
+      }
     } catch (_) {
-      setState(() => _errorMessage = 'Unable to sign in. Please try again.');
+      if (mounted) {
+        setState(() => _errorMessage = 'Unable to sign in. Please try again.');
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -58,6 +62,10 @@ class _LoginScreenState extends State<LoginScreen> {
         return 'Enter a valid email address.';
       case 'user-disabled':
         return 'This account has been disabled.';
+      case 'too-many-requests':
+        return 'Too many attempts. Please wait and try again.';
+      case 'network-request-failed':
+        return 'A network connection is required to sign in.';
       default:
         return 'Unable to sign in. Please try again.';
     }
