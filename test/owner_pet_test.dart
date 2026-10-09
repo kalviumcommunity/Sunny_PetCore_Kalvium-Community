@@ -2,6 +2,7 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:petcore/models/owner_model.dart';
 import 'package:petcore/models/pet_model.dart';
+import 'package:petcore/models/role_permissions.dart';
 import 'package:petcore/models/user_model.dart';
 import 'package:petcore/services/firestore_service.dart';
 
@@ -84,5 +85,21 @@ void main() {
     expect(restored.email, 'maya@example.com');
     expect(restored.role, 'VETERINARIAN');
     expect(restored.branchId, 'branch-001');
+  });
+
+  test('Role permissions protect user management and operational screens', () {
+    expect(RolePermissions.canManageUsers(UserRole.admin), isTrue);
+    expect(RolePermissions.canAccessOwners(UserRole.admin), isTrue);
+    expect(RolePermissions.canAccessPets(UserRole.admin), isTrue);
+
+    expect(RolePermissions.canManageUsers(UserRole.veterinarian), isFalse);
+    expect(RolePermissions.canAccessOwners(UserRole.veterinarian), isFalse);
+    expect(RolePermissions.canAccessPets(UserRole.veterinarian), isTrue);
+
+    expect(RolePermissions.canManageUsers(UserRole.clinicStaff), isFalse);
+    expect(RolePermissions.canAccessOwners(UserRole.clinicStaff), isTrue);
+    expect(RolePermissions.canAccessPets(UserRole.clinicStaff), isTrue);
+
+    expect(RolePermissions.canAccessPets(UserRole.unknown), isFalse);
   });
 }
