@@ -2,16 +2,19 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../models/user_model.dart';
+import '../models/role_permissions.dart';
 import '../services/auth_service.dart';
 
 class UserManagementScreen extends StatefulWidget {
   final AuthService authService;
   final User firebaseUser;
+  final UserModel currentUser;
 
   const UserManagementScreen({
     super.key,
     required this.authService,
     required this.firebaseUser,
+    required this.currentUser,
   });
 
   @override
@@ -55,6 +58,14 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!RolePermissions.canManageUsers(
+      UserRole.fromValue(widget.currentUser.role),
+    )) {
+      return const Center(
+        child: Text('You do not have permission to manage users.'),
+      );
+    }
+
     return FutureBuilder<List<UserModel>>(
       future: _usersFuture,
       builder: (context, snapshot) {
@@ -83,7 +94,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             itemCount: users.length,
             itemBuilder: (context, index) {
               final user = users[index];
-              final isCurrentUser = user.id == widget.firebaseUser.uid;
               return Card(
                 child: ListTile(
                   leading: CircleAvatar(
@@ -96,13 +106,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     '${user.email}\nRole: ${user.role} | Branch: ${user.branchId.isEmpty ? 'Unassigned' : user.branchId}',
                   ),
                   isThreeLine: true,
-                  trailing: isCurrentUser
-                      ? IconButton(
-                          tooltip: 'Edit profile',
-                          onPressed: () => _editProfile(user),
-                          icon: const Icon(Icons.edit_outlined),
-                        )
-                      : null,
+                  trailing: IconButton(
+                    tooltip: user.id == widget.firebaseUser.uid
+                        ? 'Edit your profile'
+                        : 'Edit user',
+                    onPressed: () => _editProfile(user),
+                    icon: const Icon(Icons.edit_outlined),
+                  ),
                 ),
               );
             },
