@@ -1,16 +1,21 @@
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:petcore/models/branch_model.dart';
 import 'package:petcore/models/owner_model.dart';
 import 'package:petcore/models/pet_model.dart';
+import 'package:petcore/models/role_permissions.dart';
 import 'package:petcore/models/user_model.dart';
+import 'package:petcore/services/branch_service.dart';
 import 'package:petcore/services/firestore_service.dart';
 
 void main() {
   late FakeFirebaseFirestore fakeFirestore;
+  late BranchService branchService;
   late FirestoreService firestoreService;
 
   setUp(() {
     fakeFirestore = FakeFirebaseFirestore();
+    branchService = BranchService(firestore: fakeFirestore);
     firestoreService = FirestoreService(firestore: fakeFirestore);
   });
 
@@ -84,5 +89,44 @@ void main() {
     expect(restored.email, 'maya@example.com');
     expect(restored.role, 'VETERINARIAN');
     expect(restored.branchId, 'branch-001');
+  });
+
+  test('Role permissions protect user management and operational screens', () {
+    expect(RolePermissions.canManageUsers(UserRole.admin), isTrue);
+    expect(RolePermissions.canAccessOwners(UserRole.admin), isTrue);
+    expect(RolePermissions.canAccessPets(UserRole.admin), isTrue);
+
+    expect(RolePermissions.canManageUsers(UserRole.veterinarian), isFalse);
+    expect(RolePermissions.canAccessOwners(UserRole.veterinarian), isFalse);
+    expect(RolePermissions.canAccessPets(UserRole.veterinarian), isTrue);
+
+    expect(RolePermissions.canManageUsers(UserRole.clinicStaff), isFalse);
+    expect(RolePermissions.canAccessOwners(UserRole.clinicStaff), isTrue);
+    expect(RolePermissions.canAccessPets(UserRole.clinicStaff), isTrue);
+
+    expect(RolePermissions.canAccessPets(UserRole.unknown), isFalse);
+  });
+
+  test('Branch service can create, read, and update a branch', () async {
+    final branch = const BranchModel(
+      id: '',
+      name: 'Central Clinic',
+      address: '1 Main Street',
+      phone: '555-0100',
+      isActive: true,
+    );
+
+    final branchId = await branchService.addBranch(branch);
+    expect(branchId, isNotEmpty);
+
+    var branches = await branchService.getBranches();
+    expect(branches.single.name, 'Central Clinic');
+    expect(branches.single.isActive, isTrue);
+
+    await branchService.updateBranch(
+      branches.single.copyWith(isActive: false),
+    );
+    branches = await branchService.getBranches();
+    expect(branches.single.isActive, isFalse);
   });
 }

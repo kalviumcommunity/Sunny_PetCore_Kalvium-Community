@@ -1,17 +1,24 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../models/branch_model.dart';
 import '../models/user_model.dart';
+import '../models/role_permissions.dart';
 import '../services/auth_service.dart';
+import '../services/branch_service.dart';
 
 class UserManagementScreen extends StatefulWidget {
   final AuthService authService;
   final User firebaseUser;
+  final UserModel currentUser;
+  final BranchService branchService;
 
   const UserManagementScreen({
     super.key,
     required this.authService,
     required this.firebaseUser,
+    required this.currentUser,
+    required this.branchService,
   });
 
   @override
@@ -34,7 +41,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   Future<void> _editProfile(UserModel user) async {
     final updated = await showDialog<UserModel>(
       context: context,
-      builder: (_) => _EditUserDialog(user: user),
+      builder: (_) => _EditUserDialog(
+        user: user,
+        branchService: widget.branchService,
+      ),
     );
     if (updated == null) return;
 
@@ -55,6 +65,14 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!RolePermissions.canManageUsers(
+      UserRole.fromValue(widget.currentUser.role),
+    )) {
+      return const Center(
+        child: Text('You do not have permission to manage users.'),
+      );
+    }
+
     return FutureBuilder<List<UserModel>>(
       future: _usersFuture,
       builder: (context, snapshot) {
@@ -83,7 +101,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             itemCount: users.length,
             itemBuilder: (context, index) {
               final user = users[index];
-              final isCurrentUser = user.id == widget.firebaseUser.uid;
               return Card(
                 child: ListTile(
                   leading: CircleAvatar(
@@ -96,13 +113,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     '${user.email}\nRole: ${user.role} | Branch: ${user.branchId.isEmpty ? 'Unassigned' : user.branchId}',
                   ),
                   isThreeLine: true,
-                  trailing: isCurrentUser
-                      ? IconButton(
-                          tooltip: 'Edit profile',
-                          onPressed: () => _editProfile(user),
-                          icon: const Icon(Icons.edit_outlined),
-                        )
-                      : null,
+                  trailing: IconButton(
+                    tooltip: user.id == widget.firebaseUser.uid
+                        ? 'Edit your profile'
+                        : 'Edit user',
+                    onPressed: () => _editProfile(user),
+                    icon: const Icon(Icons.edit_outlined),
+                  ),
                 ),
               );
             },
@@ -121,8 +138,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
 class _EditUserDialog extends StatefulWidget {
   final UserModel user;
+  final BranchService branchService;
 
-  const _EditUserDialog({required this.user});
+  const _EditUserDialog({required this.user, required this.branchService});
 
   @override
   State<_EditUserDialog> createState() => _EditUserDialogState();
@@ -130,21 +148,22 @@ class _EditUserDialog extends StatefulWidget {
 
 class _EditUserDialogState extends State<_EditUserDialog> {
   late final TextEditingController _nameController;
-  late final TextEditingController _branchController;
+  late Future<List<BranchModel>> _branchesFuture;
   late String _role;
+  String? _branchId;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.user.name);
-    _branchController = TextEditingController(text: widget.user.branchId);
     _role = widget.user.role;
+    _branchId = widget.user.branchId.isEmpty ? null : widget.user.branchId;
+    _branchesFuture = widget.branchService.getBranches();
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _branchController.dispose();
     super.dispose();
   }
 
@@ -157,7 +176,7 @@ class _EditUserDialogState extends State<_EditUserDialog> {
       widget.user.copyWith(
         name: name,
         role: _role,
-        branchId: _branchController.text.trim(),
+        branchId: _branchId ?? '',
       ),
     );
   }
@@ -166,18 +185,49 @@ class _EditUserDialogState extends State<_EditUserDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Edit user profile'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+      content: FutureBuilder<List<BranchModel>>(
+        future: _branchesFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const SizedBox(
+              height: 80,
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          if (snapshot.hasError) {
+            return const Text('Branches could not be loaded.');
+          }
+
+          final branches = snapshot.data ?? [];
+          final branchExists = _branchId == null ||
+              branches.any((branch) => branch.id == _branchId);
+          if (!branchExists) _branchId = null;
+
+          return SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
             TextFormField(
               controller: _nameController,
               decoration: const InputDecoration(labelText: 'Name'),
             ),
             const SizedBox(height: 12),
-            TextFormField(
-              controller: _branchController,
-              decoration: const InputDecoration(labelText: 'Branch ID'),
+            DropdownButtonFormField<String?>(
+              value: _branchId,
+              decoration: const InputDecoration(labelText: 'Branch'),
+              items: [
+                const DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('Unassigned'),
+                ),
+                ...branches
+                    .where((branch) => branch.isActive)
+                    .map((branch) => DropdownMenuItem<String?>(
+                          value: branch.id,
+                          child: Text(branch.name),
+                        )),
+              ],
+              onChanged: (value) => setState(() => _branchId = value),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
@@ -198,8 +248,10 @@ class _EditUserDialogState extends State<_EditUserDialog> {
                 if (value != null) setState(() => _role = value);
               },
             ),
-          ],
-        ),
+              ],
+            ),
+          );
+        },
       ),
       actions: [
         TextButton(

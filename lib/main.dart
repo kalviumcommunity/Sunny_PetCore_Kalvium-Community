@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'screens/auth_gate.dart';
 import 'screens/setup_error_screen.dart';
 import 'services/auth_service.dart';
+import 'services/branch_service.dart';
 import 'services/firestore_service.dart';
 
 void main() async {
@@ -13,6 +14,7 @@ void main() async {
     runApp(
       PetCoreApp(
         authService: AuthService(),
+        branchService: BranchService(),
         firestoreService: FirestoreService(),
       ),
     );
@@ -23,12 +25,14 @@ void main() async {
 
 class PetCoreApp extends StatelessWidget {
   final AuthService? authService;
+  final BranchService? branchService;
   final FirestoreService? firestoreService;
   final String? initializationError;
 
   const PetCoreApp({
     super.key,
     this.authService,
+    this.branchService,
     this.firestoreService,
     this.initializationError,
   });
@@ -46,6 +50,7 @@ class PetCoreApp extends StatelessWidget {
           ? SetupErrorScreen(error: initializationError!)
           : AuthGate(
               authService: authService!,
+              branchService: branchService!,
               firestoreService: firestoreService!,
             ),
     );
