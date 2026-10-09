@@ -4,13 +4,16 @@ import 'package:flutter/material.dart';
 import '../models/role_permissions.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import '../services/branch_service.dart';
 import '../services/firestore_service.dart';
+import 'branch_management_screen.dart';
 import 'owner_screen.dart';
 import 'pet_screen.dart';
 import 'user_management_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final AuthService authService;
+  final BranchService branchService;
   final FirestoreService firestoreService;
   final User firebaseUser;
   final UserModel userProfile;
@@ -18,6 +21,7 @@ class DashboardScreen extends StatefulWidget {
   const DashboardScreen({
     super.key,
     required this.authService,
+    required this.branchService,
     required this.firestoreService,
     required this.firebaseUser,
     required this.userProfile,
@@ -62,10 +66,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
         authService: widget.authService,
         firebaseUser: widget.firebaseUser,
         currentUser: widget.userProfile,
+        branchService: widget.branchService,
       ));
       destinations.add(const NavigationDestination(
         icon: Icon(Icons.group),
         label: 'Users',
+      ));
+      screens.add(BranchManagementScreen(
+        branchService: widget.branchService,
+        currentUser: widget.userProfile,
+      ));
+      destinations.add(const NavigationDestination(
+        icon: Icon(Icons.store),
+        label: 'Branches',
       ));
     }
 

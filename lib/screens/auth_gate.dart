@@ -3,17 +3,20 @@ import 'package:flutter/material.dart';
 
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import '../services/branch_service.dart';
 import '../services/firestore_service.dart';
 import 'dashboard_screen.dart';
 import 'login_screen.dart';
 
 class AuthGate extends StatelessWidget {
   final AuthService authService;
+  final BranchService branchService;
   final FirestoreService firestoreService;
 
   const AuthGate({
     super.key,
     required this.authService,
+    required this.branchService,
     required this.firestoreService,
   });
 
@@ -54,6 +57,7 @@ class AuthGate extends StatelessWidget {
 
             return DashboardScreen(
               authService: authService,
+              branchService: branchService,
               firestoreService: firestoreService,
               firebaseUser: firebaseUser,
               userProfile: profileSnapshot.data!,
@@ -70,6 +74,7 @@ class AuthGate extends StatelessWidget {
       MaterialPageRoute(
         builder: (_) => AuthGate(
           authService: authService,
+          branchService: branchService,
           firestoreService: firestoreService,
         ),
       ),

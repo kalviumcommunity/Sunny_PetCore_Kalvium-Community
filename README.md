@@ -37,3 +37,7 @@ The supported roles are `ADMIN`, `VETERINARIAN`, and `CLINIC STAFF`. Access is l
 - `CLINIC STAFF`: Dashboard, owners, and pets.
 
 Unknown or unassigned roles only receive the dashboard and cannot access operational screens. The Users screen also checks the role itself, so hiding its navigation item is not the only protection.
+
+## Phase 5 Branch Management
+
+Administrators can add, view, edit, and deactivate branches from the protected Branches screen. Each branch stores a name, address, phone number, and active status in the `branches` collection. User profiles are assigned to active branches through a branch selector, and the authenticated user's assigned branch is shown on the dashboard.
