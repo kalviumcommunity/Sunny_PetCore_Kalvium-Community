@@ -2,7 +2,6 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:petcore/models/owner_model.dart';
-import 'package:petcore/screens/owner_profile_screen.dart';
 import 'package:petcore/screens/owner_registration_screen.dart';
 import 'package:petcore/services/firestore_service.dart';
 
@@ -58,17 +57,44 @@ void main() {
       expect(names, containsAll(['Alice Johnson', 'Bob Smith', 'Charlie Brown']));
     });
 
-    // 2. Widget Test: Register Owner -> Validate -> Firestore -> Owner Profile
-    testWidgets('Register Owner -> Validate -> Firestore -> Owner Profile flow',
+    // 2. Widget Test: Register Owner -> Validate -> Firestore
+    testWidgets('Register Owner -> Validate -> Firestore -> pops back',
         (WidgetTester tester) async {
+      // Wrap in a Navigator so pop() works correctly
+      bool didPop = false;
       await tester.pumpWidget(
         MaterialApp(
-          home: OwnerRegistrationScreen(firestoreService: firestoreService),
+          home: Navigator(
+            onGenerateRoute: (_) => MaterialPageRoute(
+              builder: (_) => Builder(
+                builder: (context) => Scaffold(
+                  body: ElevatedButton(
+                    onPressed: () async {
+                      final result = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => OwnerRegistrationScreen(
+                            firestoreService: firestoreService,
+                          ),
+                        ),
+                      );
+                      didPop = result == true;
+                    },
+                    child: const Text('Open Registration'),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       );
 
+      // Navigate to registration screen
+      await tester.tap(find.text('Open Registration'));
+      await tester.pumpAndSettle();
+
       // 1. Test validation: tap without filling details
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Register Owner'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Register Owner'));
       await tester.pumpAndSettle();
 
       expect(find.text('Please enter name'), findsOneWidget);
@@ -78,29 +104,65 @@ void main() {
 
       // 2. Fill valid details
       await tester.enterText(
-          find.widgetWithText(TextFormField, 'Name'), 'Sarah Jenkins');
+          find.widgetWithText(TextFormField, 'Full Name'), 'Sarah Jenkins');
       await tester.enterText(
-          find.widgetWithText(TextFormField, 'Phone'), '9876543210');
+          find.widgetWithText(TextFormField, 'Phone Number'), '9876543210');
       await tester.enterText(
-          find.widgetWithText(TextFormField, 'Email'), 'sarah@example.com');
+          find.widgetWithText(TextFormField, 'Email Address'), 'sarah@example.com');
       await tester.enterText(
           find.widgetWithText(TextFormField, 'Address'), '742 Evergreen Terrace');
 
-      // 3. Submit form
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Register Owner'));
+      // 3. Submit form (use FilledButton finder to avoid ambiguity with AppBar title)
+      await tester.tap(find.widgetWithText(FilledButton, 'Register Owner'));
       await tester.pumpAndSettle();
 
       // 4. Verify owner is saved in Firestore
       final owners = await firestoreService.getOwners();
       expect(owners.length, 1);
       expect(owners.first.name, 'Sarah Jenkins');
+      expect(owners.first.phone, '9876543210');
+      expect(owners.first.email, 'sarah@example.com');
+      expect(owners.first.address, '742 Evergreen Terrace');
 
-      // 5. Verify navigation to OwnerProfileScreen
-      expect(find.byType(OwnerProfileScreen), findsOneWidget);
-      expect(find.text('Sarah Jenkins'), findsOneWidget);
-      expect(find.text('9876543210'), findsOneWidget);
-      expect(find.text('sarah@example.com'), findsOneWidget);
-      expect(find.text('742 Evergreen Terrace'), findsOneWidget);
+      // 5. Verify it popped back with success
+      expect(didPop, isTrue);
+    });
+
+    // 3. Widget Test: Edit mode pre-fills form fields
+    testWidgets('Edit mode pre-fills form fields with existing owner data',
+        (WidgetTester tester) async {
+      final existingOwner = OwnerModel(
+        id: 'test-owner-id',
+        name: 'Existing Owner',
+        phone: '5555555555',
+        email: 'existing@example.com',
+        address: '100 Test Lane',
+      );
+
+      // Pre-populate Firestore so update works
+      await fakeFirestore.collection('owners').doc('test-owner-id').set(
+            existingOwner.toMap(),
+          );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: OwnerRegistrationScreen(
+            firestoreService: firestoreService,
+            existingOwner: existingOwner,
+          ),
+        ),
+      );
+
+      // Verify form is pre-filled
+      expect(find.text('Edit Owner'), findsOneWidget);
+      expect(find.text('Editing: Existing Owner'), findsOneWidget);
+      expect(find.text('Save Changes'), findsOneWidget);
+
+      // Verify fields contain existing data
+      final nameField = tester.widget<TextFormField>(
+        find.widgetWithText(TextFormField, 'Full Name'),
+      );
+      expect(nameField.controller?.text, 'Existing Owner');
     });
   });
 }
