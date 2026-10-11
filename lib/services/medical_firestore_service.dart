@@ -1,5 +1,11 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import '../models/consultation_model.dart';
+import '../models/document_model.dart';
+import '../models/followup_model.dart';
 import '../models/prescription_model.dart';
 import '../models/treatment_model.dart';
 import '../models/vaccination_model.dart';
@@ -7,9 +13,17 @@ import '../models/vaccination_model.dart';
 // This service handles medical record operations with Cloud Firestore.
 class MedicalFirestoreService {
   final FirebaseFirestore _db;
+  final FirebaseStorage? _providedStorage;
+  FirebaseStorage? _storageInstance;
 
-  MedicalFirestoreService({FirebaseFirestore? firestore})
-      : _db = firestore ?? FirebaseFirestore.instance;
+  MedicalFirestoreService({
+    FirebaseFirestore? firestore,
+    FirebaseStorage? storage,
+  })  : _db = firestore ?? FirebaseFirestore.instance,
+        _providedStorage = storage;
+
+  FirebaseStorage get _storage =>
+      _storageInstance ??= _providedStorage ?? FirebaseStorage.instance;
 
   // References to the medical record collections in Firestore
   CollectionReference get consultationsCollection =>
@@ -22,6 +36,10 @@ class MedicalFirestoreService {
 
   CollectionReference get prescriptionsCollection =>
       _db.collection('prescriptions');
+
+  CollectionReference get followupsCollection => _db.collection('followups');
+
+  CollectionReference get documentsCollection => _db.collection('documents');
 
   // Add a new consultation record
   Future<String> addConsultation(ConsultationModel consultation) async {
@@ -96,6 +114,112 @@ class MedicalFirestoreService {
         doc.id,
       );
     }).toList();
+  }
+
+  Future<String> addFollowUp(FollowUpModel followUp) async {
+    final docRef = await followupsCollection.add(followUp.toMap());
+    return docRef.id;
+  }
+
+  Future<List<FollowUpModel>> getUpcomingFollowUps() async {
+    final snapshot = await followupsCollection
+        .where('status', isEqualTo: 'Pending')
+        .get();
+    final followUps = snapshot.docs.map((doc) {
+      return FollowUpModel.fromMap(
+        doc.data() as Map<String, dynamic>,
+        doc.id,
+      );
+    }).toList();
+    followUps.sort((first, second) =>
+        first.followUpDate.compareTo(second.followUpDate));
+    return followUps;
+  }
+
+  Future<List<FollowUpModel>> getUpcomingFollowUpsForPet(String petId) async {
+    final snapshot =
+        await followupsCollection.where('petId', isEqualTo: petId).get();
+    final followUps = snapshot.docs
+        .map((doc) => FollowUpModel.fromMap(
+              doc.data() as Map<String, dynamic>,
+              doc.id,
+            ))
+        .where((followUp) => followUp.status == 'Pending')
+        .toList();
+    followUps.sort((first, second) =>
+        first.followUpDate.compareTo(second.followUpDate));
+    return followUps;
+  }
+
+  Future<void> markFollowUpCompleted(String followUpId) async {
+    await followupsCollection.doc(followUpId).update({'status': 'Completed'});
+  }
+
+  Future<DocumentModel> uploadDocument(
+    File file,
+    String petId,
+    String documentType, {
+    void Function(double progress)? onProgress,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw StateError('No signed-in staff profile');
+
+    final userSnapshot = await _db.collection('users').doc(user.uid).get();
+    final branchId = userSnapshot.data()?['branchId'] as String? ?? '';
+    final fileName = file.uri.pathSegments.last.replaceAll(
+      RegExp(r'[/\\]'),
+      '_',
+    );
+    if (fileName.isEmpty) throw ArgumentError('The selected file has no name');
+
+    final uploadTask = _storage.ref('documents/$petId/$fileName').putFile(file);
+    final progressSubscription = uploadTask.snapshotEvents.listen((snapshot) {
+      if (snapshot.totalBytes > 0) {
+        onProgress?.call(snapshot.bytesTransferred / snapshot.totalBytes);
+      }
+    });
+
+    late final TaskSnapshot uploadSnapshot;
+    try {
+      uploadSnapshot = await uploadTask;
+    } finally {
+      await progressSubscription.cancel();
+    }
+
+    final document = DocumentModel(
+      petId: petId,
+      fileName: fileName,
+      fileUrl: await uploadSnapshot.ref.getDownloadURL(),
+      uploadedBy: user.uid,
+      branchId: branchId,
+      uploadDate: DateTime.now(),
+      documentType: documentType,
+    );
+    final docRef = await documentsCollection.add(document.toMap());
+    return DocumentModel(
+      id: docRef.id,
+      petId: document.petId,
+      fileName: document.fileName,
+      fileUrl: document.fileUrl,
+      uploadedBy: document.uploadedBy,
+      branchId: document.branchId,
+      uploadDate: document.uploadDate,
+      documentType: document.documentType,
+    );
+  }
+
+  Future<List<DocumentModel>> getDocumentsForPet(String petId) async {
+    final snapshot =
+        await documentsCollection.where('petId', isEqualTo: petId).get();
+    final documents = snapshot.docs.map((doc) {
+      return DocumentModel.fromMap(
+        doc.data() as Map<String, dynamic>,
+        doc.id,
+      );
+    }).toList();
+    documents.sort((first, second) =>
+        second.uploadDate.compareTo(first.uploadDate));
+    return documents;
   }
 
   // Read all medical records for a pet as a single timeline
