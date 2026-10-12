@@ -41,3 +41,7 @@ Unknown or unassigned roles only receive the dashboard and cannot access operati
 ## Phase 5 Branch Management
 
 Administrators can add, view, edit, and deactivate branches from the protected Branches screen. Each branch stores a name, address, phone number, and active status in the `branches` collection. User profiles are assigned to active branches through a branch selector, and the authenticated user's assigned branch is shown on the dashboard.
+
+## Phase 6 Dashboard Foundation
+
+The dashboard now includes today's consultations, upcoming follow-ups, vaccinations due within the next 30 days (including overdue records), recently viewed pets for the current session, and pet search by ID, name, or species. Quick actions are available for pet registration and clinical records according to role. Consultations, vaccinations, and treatments are stored in the `clinical_records` collection with pet, date, veterinarian, branch, notes, and follow-up/due-date data.

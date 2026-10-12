@@ -35,4 +35,21 @@ class OwnerModel {
       address: map['address'] ?? '',
     );
   }
+
+  // Creates a copy of this Owner with optional updated fields
+  OwnerModel copyWith({
+    String? id,
+    String? name,
+    String? phone,
+    String? email,
+    String? address,
+  }) {
+    return OwnerModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      phone: phone ?? this.phone,
+      email: email ?? this.email,
+      address: address ?? this.address,
+    );
+  }
 }
