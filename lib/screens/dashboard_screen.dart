@@ -33,6 +33,15 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
+  final List<PetModel> _recentPets = [];
+
+  void _rememberPet(PetModel pet) {
+    setState(() {
+      _recentPets.removeWhere((item) => item.id == pet.id);
+      _recentPets.insert(0, pet);
+      if (_recentPets.length > 5) _recentPets.removeLast();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +53,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
         label: 'Dashboard',
       ),
     ];
+    final destinations = <NavigationDestination>[
+      const NavigationDestination(
+        icon: Icon(Icons.dashboard),
+        label: 'Dashboard',
+      ),
+    ];
+
+    if (RolePermissions.canAccessOwners(role)) {
+      screens.add(OwnerScreen(firestoreService: widget.firestoreService));
+      destinations.add(const NavigationDestination(
+        icon: Icon(Icons.person),
+        label: 'Owners',
+      ));
+    }
+
+    if (RolePermissions.canAccessPets(role)) {
+      screens.add(PetScreen(firestoreService: widget.firestoreService));
+      destinations.add(const NavigationDestination(
+        icon: Icon(Icons.pets),
+        label: 'Pets',
+      ));
+    }
+
+    if (RolePermissions.canManageUsers(role)) {
+      screens.add(UserManagementScreen(
+        authService: widget.authService,
+        firebaseUser: widget.firebaseUser,
+        currentUser: widget.userProfile,
+        branchService: widget.branchService,
+      ));
+      destinations.add(const NavigationDestination(
+        icon: Icon(Icons.group),
+        label: 'Users',
+      ));
+      screens.add(BranchManagementScreen(
+        branchService: widget.branchService,
+        currentUser: widget.userProfile,
+      ));
+      destinations.add(const NavigationDestination(
+        icon: Icon(Icons.store),
+        label: 'Branches',
+      ));
+    }
+
+    final safeIndex = _currentIndex < screens.length ? _currentIndex : 0;
 
     if (RolePermissions.canAccessOwners(role)) {
       screens.add(OwnerScreen(firestoreService: widget.firestoreService));
@@ -134,9 +188,37 @@ class _DashboardHome extends StatelessWidget {
               subtitle: Text(
                 'Authentication, profiles, and protected navigation are active.',
               ),
+              onSubmitted: (_) => _search(),
             ),
-          ),
-        ],
+            if (_isLoading)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(),
+              )
+            else if (_results.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('No matching pets found.'),
+              )
+            else
+              ..._results.map((pet) => ListTile(
+                    leading: const Icon(Icons.pets),
+                    title: Text('${pet.name} (${pet.petId})'),
+                    subtitle: Text('${pet.species} · ${pet.breed}'),
+                    onTap: () => Navigator.pop(context, pet),
+                  )),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+}
       ),
     );
   }

@@ -15,7 +15,7 @@ void main() {
     firestoreService = FirestoreService(firestore: fakeFirestore);
   });
 
-  group('Owner Registration Tests', () {
+  group('Owner Registration Tests', () { 
     // 1. Test creating multiple owners in Firestore
     test('Can create and store multiple owners in Firestore', () async {
       final owner1 = OwnerModel(
