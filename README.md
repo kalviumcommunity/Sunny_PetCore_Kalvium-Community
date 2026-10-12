@@ -27,3 +27,17 @@ Login validates required fields locally and displays specific feedback for inval
 ## Phase 3 User Management
 
 After authentication, PetCore creates a `users/{uid}` profile containing the user's name, email, role, and branch ID. The protected Users screen lists stored profiles and lets the signed-in user update their name, role, and branch assignment. Role-based restrictions are intentionally reserved for Phase 4.
+
+## Phase 4 Role-Based Access Control
+
+The supported roles are `ADMIN`, `VETERINARIAN`, and `CLINIC STAFF`. Access is least-privilege by default:
+
+- `ADMIN`: Dashboard, owners, pets, and user management.
+- `VETERINARIAN`: Dashboard and pets.
+- `CLINIC STAFF`: Dashboard, owners, and pets.
+
+Unknown or unassigned roles only receive the dashboard and cannot access operational screens. The Users screen also checks the role itself, so hiding its navigation item is not the only protection.
+
+## Phase 5 Branch Management
+
+Administrators can add, view, edit, and deactivate branches from the protected Branches screen. Each branch stores a name, address, phone number, and active status in the `branches` collection. User profiles are assigned to active branches through a branch selector, and the authenticated user's assigned branch is shown on the dashboard.

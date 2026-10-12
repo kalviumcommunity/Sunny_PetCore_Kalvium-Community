@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/clinical_record_model.dart';
 import '../models/owner_model.dart';
 import '../models/pet_model.dart';
 
@@ -15,9 +16,8 @@ class FirestoreService {
   // 2. Reference to the 'pets' collection in Firestore
   CollectionReference get petsCollection => _db.collection('pets');
 
-  // ──────────────────────────────────────────────
-  //  OWNER CRUD Operations
-  // ──────────────────────────────────────────────
+  CollectionReference get clinicalRecordsCollection =>
+      _db.collection('clinical_records');
 
   // Add a new owner record into the 'owners' collection
   Future<String> addOwner(OwnerModel owner) async {
@@ -116,12 +116,32 @@ class FirestoreService {
     }).toList();
   }
 
-  // Get all pets belonging to a specific owner
-  Future<List<PetModel>> getPetsByOwner(String ownerId) async {
-    final snapshot =
-        await petsCollection.where('ownerId', isEqualTo: ownerId).get();
-    return snapshot.docs.map((doc) {
-      return PetModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+  Future<List<PetModel>> searchPets(String query) async {
+    final normalizedQuery = query.trim().toLowerCase();
+    if (normalizedQuery.isEmpty) return [];
+
+    final pets = await getPets();
+    return pets.where((pet) {
+      return pet.petId.toLowerCase().contains(normalizedQuery) ||
+          pet.name.toLowerCase().contains(normalizedQuery) ||
+          pet.species.toLowerCase().contains(normalizedQuery);
     }).toList();
+  }
+
+  Future<String> addClinicalRecord(ClinicalRecord record) async {
+    final docRef = await clinicalRecordsCollection.add(record.toMap());
+    return docRef.id;
+  }
+
+  Future<List<ClinicalRecord>> getClinicalRecords() async {
+    final snapshot = await clinicalRecordsCollection.get();
+    final records = snapshot.docs.map((doc) {
+      return ClinicalRecord.fromMap(
+        doc.data() as Map<String, dynamic>,
+        doc.id,
+      );
+    }).toList();
+    records.sort((first, second) => second.date.compareTo(first.date));
+    return records;
   }
 }

@@ -1,22 +1,31 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../models/role_permissions.dart';
+import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import '../services/branch_service.dart';
+import '../services/dashboard_data_service.dart';
 import '../services/firestore_service.dart';
+import 'branch_management_screen.dart';
 import 'owner_screen.dart';
 import 'pet_screen.dart';
 import 'user_management_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final AuthService authService;
+  final BranchService branchService;
   final FirestoreService firestoreService;
   final User firebaseUser;
+  final UserModel userProfile;
 
   const DashboardScreen({
     super.key,
     required this.authService,
+    required this.branchService,
     required this.firestoreService,
     required this.firebaseUser,
+    required this.userProfile,
   });
 
   @override
@@ -25,18 +34,110 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
+  final List<PetModel> _recentPets = [];
+
+  void _rememberPet(PetModel pet) {
+    setState(() {
+      _recentPets.removeWhere((item) => item.id == pet.id);
+      _recentPets.insert(0, pet);
+      if (_recentPets.length > 5) _recentPets.removeLast();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final screens = [
-      _DashboardHome(user: widget.firebaseUser),
-      OwnerScreen(firestoreService: widget.firestoreService),
-      PetScreen(firestoreService: widget.firestoreService),
-      UserManagementScreen(
-        authService: widget.authService,
-        firebaseUser: widget.firebaseUser,
+    final role = UserRole.fromValue(widget.userProfile.role);
+    final screens = <Widget>[_DashboardHome(profile: widget.userProfile)];
+    final destinations = <NavigationDestination>[
+      const NavigationDestination(
+        icon: Icon(Icons.dashboard),
+        label: 'Dashboard',
       ),
     ];
+    final destinations = <NavigationDestination>[
+      const NavigationDestination(
+        icon: Icon(Icons.dashboard),
+        label: 'Dashboard',
+      ),
+    ];
+
+    if (RolePermissions.canAccessOwners(role)) {
+      screens.add(OwnerScreen(firestoreService: widget.firestoreService));
+      destinations.add(const NavigationDestination(
+        icon: Icon(Icons.person),
+        label: 'Owners',
+      ));
+    }
+
+    if (RolePermissions.canAccessPets(role)) {
+      screens.add(PetScreen(firestoreService: widget.firestoreService));
+      destinations.add(const NavigationDestination(
+        icon: Icon(Icons.pets),
+        label: 'Pets',
+      ));
+    }
+
+    if (RolePermissions.canManageUsers(role)) {
+      screens.add(UserManagementScreen(
+        authService: widget.authService,
+        firebaseUser: widget.firebaseUser,
+        currentUser: widget.userProfile,
+        branchService: widget.branchService,
+      ));
+      destinations.add(const NavigationDestination(
+        icon: Icon(Icons.group),
+        label: 'Users',
+      ));
+      screens.add(BranchManagementScreen(
+        branchService: widget.branchService,
+        currentUser: widget.userProfile,
+      ));
+      destinations.add(const NavigationDestination(
+        icon: Icon(Icons.store),
+        label: 'Branches',
+      ));
+    }
+
+    final safeIndex = _currentIndex < screens.length ? _currentIndex : 0;
+
+    if (RolePermissions.canAccessOwners(role)) {
+      screens.add(OwnerScreen(firestoreService: widget.firestoreService));
+      destinations.add(const NavigationDestination(
+        icon: Icon(Icons.person),
+        label: 'Owners',
+      ));
+    }
+
+    if (RolePermissions.canAccessPets(role)) {
+      screens.add(PetScreen(firestoreService: widget.firestoreService));
+      destinations.add(const NavigationDestination(
+        icon: Icon(Icons.pets),
+        label: 'Pets',
+      ));
+    }
+
+    if (RolePermissions.canManageUsers(role)) {
+      screens.add(UserManagementScreen(
+        authService: widget.authService,
+        firebaseUser: widget.firebaseUser,
+        currentUser: widget.userProfile,
+        branchService: widget.branchService,
+      ));
+      destinations.add(const NavigationDestination(
+        icon: Icon(Icons.group),
+        label: 'Users',
+      ));
+      screens.add(BranchManagementScreen(
+        branchService: widget.branchService,
+        currentUser: widget.userProfile,
+      ));
+      destinations.add(const NavigationDestination(
+        icon: Icon(Icons.store),
+        label: 'Branches',
+      ));
+    }
+
+    final safeIndex = _currentIndex < screens.length ? _currentIndex : 0;
 
     return Scaffold(
       appBar: AppBar(
@@ -49,25 +150,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      body: screens[_currentIndex],
+      body: screens[safeIndex],
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
+        selectedIndex: safeIndex,
         onDestinationSelected: (index) => setState(() => _currentIndex = index),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.dashboard), label: 'Dashboard'),
-          NavigationDestination(icon: Icon(Icons.person), label: 'Owners'),
-          NavigationDestination(icon: Icon(Icons.pets), label: 'Pets'),
-          NavigationDestination(icon: Icon(Icons.group), label: 'Users'),
-        ],
+        destinations: destinations,
       ),
     );
   }
 }
 
 class _DashboardHome extends StatelessWidget {
-  final User user;
+  final UserModel profile;
 
-  const _DashboardHome({required this.user});
+  const _DashboardHome({required this.profile});
 
   @override
   Widget build(BuildContext context) {
@@ -77,22 +173,53 @@ class _DashboardHome extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Welcome${user.email == null ? '' : ', ${user.email}'}',
+            'Welcome, ${profile.name.isEmpty ? profile.email : profile.name}',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 8),
-          const Text('Your authenticated PetCore workspace is ready.'),
+          Text('Role: ${UserRole.fromValue(profile.role).label}'),
+          Text(
+            'Branch: ${profile.branchId.isEmpty ? 'Unassigned' : profile.branchId}',
+          ),
           const SizedBox(height: 24),
           const Card(
             child: ListTile(
               leading: Icon(Icons.info_outline),
-              title: Text('Phase 1 complete'),
+              title: Text('Role-based access is active'),
               subtitle: Text(
                 'Authentication, profiles, and protected navigation are active.',
               ),
+              onSubmitted: (_) => _search(),
             ),
-          ),
-        ],
+            if (_isLoading)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(),
+              )
+            else if (_results.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('No matching pets found.'),
+              )
+            else
+              ..._results.map((pet) => ListTile(
+                    leading: const Icon(Icons.pets),
+                    title: Text('${pet.name} (${pet.petId})'),
+                    subtitle: Text('${pet.species} · ${pet.breed}'),
+                    onTap: () => Navigator.pop(context, pet),
+                  )),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+}
       ),
     );
   }
