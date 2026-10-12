@@ -2,11 +2,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../models/clinical_record_model.dart';
+import '../models/dashboard_data.dart';
 import '../models/pet_model.dart';
 import '../models/role_permissions.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/branch_service.dart';
+import '../services/dashboard_data_service.dart';
 import '../services/firestore_service.dart';
 import 'branch_management_screen.dart';
 import 'clinical_record_dialog.dart';
@@ -149,7 +151,7 @@ class _DashboardHome extends StatefulWidget {
 }
 
 class _DashboardHomeState extends State<_DashboardHome> {
-  late Future<List<ClinicalRecord>> _recordsFuture;
+  late Future<DashboardData> _dashboardFuture;
 
   @override
   void initState() {
@@ -158,12 +160,14 @@ class _DashboardHomeState extends State<_DashboardHome> {
   }
 
   void _reloadRecords() {
-    _recordsFuture = widget.firestoreService.getClinicalRecords();
+    _dashboardFuture = DashboardDataService(
+      firestoreService: widget.firestoreService,
+    ).load();
   }
 
   Future<void> _refreshRecords() async {
     setState(_reloadRecords);
-    await _recordsFuture;
+    await _dashboardFuture;
   }
 
   @override
@@ -174,8 +178,8 @@ class _DashboardHomeState extends State<_DashboardHome> {
     final canRegisterPet =
       role == UserRole.admin || role == UserRole.clinicStaff;
 
-    return FutureBuilder<List<ClinicalRecord>>(
-      future: _recordsFuture,
+    return FutureBuilder<DashboardData>(
+      future: _dashboardFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -190,25 +194,7 @@ class _DashboardHomeState extends State<_DashboardHome> {
           );
         }
 
-        final records = snapshot.data ?? [];
-        final today = DateTime.now();
-        final todayConsultations = records.where((record) {
-          return record.type == 'CONSULTATION' &&
-              _isSameDay(record.date, today);
-        }).toList();
-        final upcomingFollowUps = records.where((record) {
-          final date = record.followUpDate;
-          return date != null && !date.isBefore(today);
-        }).toList()
-          ..sort((first, second) =>
-              first.followUpDate!.compareTo(second.followUpDate!));
-        final vaccinationsDue = records.where((record) {
-          final date = record.dueDate;
-          return record.type == 'VACCINATION' &&
-              date != null &&
-              date.isBefore(today.add(const Duration(days: 30)));
-        }).toList()
-          ..sort((first, second) => first.dueDate!.compareTo(second.dueDate!));
+        final dashboardData = snapshot.data!;
 
         return RefreshIndicator(
           onRefresh: _refreshRecords,
@@ -237,18 +223,18 @@ class _DashboardHomeState extends State<_DashboardHome> {
               _RecordSection(
                 title: "Today's Consultations",
                 icon: Icons.medical_services_outlined,
-                records: todayConsultations,
+                records: dashboardData.todaysConsultations,
               ),
               _RecordSection(
                 title: 'Upcoming Follow-ups',
                 icon: Icons.event_note_outlined,
-                records: upcomingFollowUps,
+                records: dashboardData.upcomingFollowUps,
                 dateSelector: (record) => record.followUpDate,
               ),
               _RecordSection(
                 title: 'Vaccinations Due',
                 icon: Icons.vaccines_outlined,
-                records: vaccinationsDue,
+                records: dashboardData.vaccinationsDue,
                 dateSelector: (record) => record.dueDate,
               ),
               _RecentPetsSection(pets: widget.recentPets),
@@ -259,11 +245,6 @@ class _DashboardHomeState extends State<_DashboardHome> {
     );
   }
 
-  bool _isSameDay(DateTime first, DateTime second) {
-    return first.year == second.year &&
-        first.month == second.month &&
-        first.day == second.day;
-  }
 }
 
 class _QuickActions extends StatelessWidget {
