@@ -8,6 +8,7 @@ import 'package:petcore/models/user_model.dart';
 import 'package:petcore/services/branch_service.dart';
 import 'package:petcore/services/dashboard_data_service.dart';
 import 'package:petcore/services/firestore_service.dart';
+import 'package:petcore/widgets/petcore_ui.dart';
 
 void main() {
   late FakeFirebaseFirestore fakeFirestore;
@@ -18,6 +19,24 @@ void main() {
     fakeFirestore = FakeFirebaseFirestore();
     branchService = BranchService(firestore: fakeFirestore);
     firestoreService = FirestoreService(firestore: fakeFirestore);
+  });
+
+  testWidgets('Shared PetCore empty state renders a clear empty-state message', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: PetCoreEmptyState(
+            title: 'No owners registered yet.',
+            subtitle: 'Create the first owner profile to begin record tracking.',
+            icon: Icons.person_outline,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('No owners registered yet.'), findsOneWidget);
+    expect(find.text('Create the first owner profile to begin record tracking.'), findsOneWidget);
+    expect(find.byIcon(Icons.person_outline), findsOneWidget);
   });
 
   test('Flutter can write and read a basic owner record in Firestore', () async {
@@ -129,5 +148,38 @@ void main() {
     );
     branches = await branchService.getBranches();
     expect(branches.single.isActive, isFalse);
+  });
+
+  test('Clinical records can be stored and pets can be searched', () async {
+    final pet = PetModel(
+      petId: 'PET-100',
+      name: 'Luna',
+      species: 'Cat',
+      breed: 'Siamese',
+      gender: 'Female',
+      dobAge: '4 years',
+      weight: 4.2,
+      color: 'Cream',
+      ownerId: 'OWNER-100',
+    );
+    await firestoreService.addPet(pet);
+
+    final record = ClinicalRecord(
+      type: 'CONSULTATION',
+      petId: pet.petId,
+      petName: pet.name,
+      date: DateTime(2026, 10, 12),
+      title: 'Annual check-up',
+      notes: 'Healthy and active.',
+      veterinarian: 'Dr. Singh',
+      branchId: 'branch-001',
+    );
+    final recordId = await firestoreService.addClinicalRecord(record);
+
+    expect(recordId, isNotEmpty);
+    expect((await firestoreService.searchPets('luna')).single.petId, 'PET-100');
+    expect((await firestoreService.searchPets('PET-100')).single.name, 'Luna');
+    expect((await firestoreService.getClinicalRecords()).single.title,
+        'Annual check-up');
   });
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/pet_model.dart';
 import '../services/firestore_service.dart';
+import '../widgets/petcore_ui.dart';
 
 class PetScreen extends StatefulWidget {
   final FirestoreService firestoreService;
@@ -132,33 +133,32 @@ class _PetScreenState extends State<PetScreen> {
         title: const Text('Pets'),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const PetCoreLoadingState()
           : _pets.isEmpty
-              ? const Center(child: Text('No pets added yet.'))
+              ? const PetCoreEmptyState(
+                  title: 'No pets added yet.',
+                  subtitle: 'Add a pet profile to begin tracking medical history.',
+                  icon: Icons.pets_outlined,
+                )
               : ListView.builder(
                   itemCount: _pets.length,
                   itemBuilder: (context, index) {
                     final pet = _pets[index];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      child: ListTile(
-                        leading: const CircleAvatar(child: Icon(Icons.pets)),
-                        title: Text('${pet.name} (${pet.petId})'),
-                        subtitle: Text(
+                    return PetCoreInfoCard(
+                      title: '${pet.name} (${pet.petId})',
+                      subtitle:
                           'Species: ${pet.species} | Breed: ${pet.breed}\n'
                           'Gender: ${pet.gender} | DOB/Age: ${pet.dobAge}\n'
                           'Weight: ${pet.weight} kg | Color: ${pet.color}\n'
                           'Owner ID: ${pet.ownerId}',
-                        ),
-                        isThreeLine: true,
-                      ),
+                      leadingIcon: Icons.pets,
                     );
                   },
                 ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddPetDialog,
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text('Add pet'),
       ),
     );
   }

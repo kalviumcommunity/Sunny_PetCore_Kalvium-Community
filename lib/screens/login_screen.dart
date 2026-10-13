@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import '../widgets/petcore_ui.dart';
 
 class LoginScreen extends StatefulWidget {
   final AuthService authService;
@@ -134,15 +135,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                   const SizedBox(height: 24),
-                  FilledButton(
-                    onPressed: _isLoading ? null : _signIn,
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Sign in'),
+                  PetCorePrimaryButton(
+                    label: 'Sign in',
+                    onPressed: _signIn,
+                    isLoading: _isLoading,
                   ),
                 ],
               ),
