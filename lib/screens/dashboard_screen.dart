@@ -51,25 +51,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final role = UserRole.fromValue(widget.userProfile.role);
-    final screens = <Widget>[
+    final screens = <Widget>[];
+    final destinations = <NavigationDestination>[];
+
+    screens.add(
       _DashboardHome(
         profile: widget.userProfile,
         firestoreService: widget.firestoreService,
         recentPets: _recentPets,
         onPetViewed: _rememberPet,
-        onRegisterPet: () {
-          setState(() {
-            _currentIndex = RolePermissions.canAccessOwners(role) ? 2 : 1;
-          });
-        },
+        onRegisterPet: () {},
       ),
-    ];
-    final destinations = <NavigationDestination>[
+    );
+    destinations.add(
       const NavigationDestination(
         icon: Icon(Icons.dashboard),
         label: 'Dashboard',
       ),
-    ];
+    );
 
     if (RolePermissions.canAccessOwners(role)) {
       screens.add(OwnerScreen(firestoreService: widget.firestoreService));
@@ -79,7 +78,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ));
     }
 
+    int? petScreenIndex;
     if (RolePermissions.canAccessPets(role)) {
+      petScreenIndex = screens.length;
       screens.add(PetScreen(firestoreService: widget.firestoreService));
       destinations.add(const NavigationDestination(
         icon: Icon(Icons.pets),
@@ -98,6 +99,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         icon: Icon(Icons.group),
         label: 'Users',
       ));
+
       screens.add(BranchManagementScreen(
         branchService: widget.branchService,
         currentUser: widget.userProfile,
@@ -109,6 +111,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     final safeIndex = _currentIndex < screens.length ? _currentIndex : 0;
+
+    if (petScreenIndex != null) {
+      screens[0] = _DashboardHome(
+        profile: widget.userProfile,
+        firestoreService: widget.firestoreService,
+        recentPets: _recentPets,
+        onPetViewed: _rememberPet,
+        onRegisterPet: () => setState(() => _currentIndex = petScreenIndex!),
+      );
+    }
+
 
     return Scaffold(
       appBar: AppBar(
@@ -176,7 +189,7 @@ class _DashboardHomeState extends State<_DashboardHome> {
     final canCreateClinical =
         role == UserRole.admin || role == UserRole.veterinarian;
     final canRegisterPet =
-      role == UserRole.admin || role == UserRole.clinicStaff;
+        role == UserRole.admin || role == UserRole.clinicStaff;
 
     return FutureBuilder<DashboardData>(
       future: _dashboardFuture,
@@ -244,7 +257,6 @@ class _DashboardHomeState extends State<_DashboardHome> {
       },
     );
   }
-
 }
 
 class _QuickActions extends StatelessWidget {

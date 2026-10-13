@@ -45,7 +45,3 @@ Administrators can add, view, edit, and deactivate branches from the protected B
 ## Phase 6 Dashboard Foundation
 
 The dashboard now includes today's consultations, upcoming follow-ups, vaccinations due within the next 30 days (including overdue records), recently viewed pets for the current session, and pet search by ID, name, or species. Quick actions are available for pet registration and clinical records according to role. Consultations, vaccinations, and treatments are stored in the `clinical_records` collection with pet, date, veterinarian, branch, notes, and follow-up/due-date data.
-
-## Phase 7 Dashboard Integration
-
-Dashboard summaries are loaded through `DashboardDataService` from the real `clinical_records` Firestore collection. Today's consultations are matched by calendar day, follow-ups are sorted by their next date, and vaccination reminders include overdue records and records due within 30 days. The integration test uses fixed dates to verify that records appear only in the correct dashboard category and remain linked to the correct pet.

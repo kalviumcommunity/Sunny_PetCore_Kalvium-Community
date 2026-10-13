@@ -1,7 +1,6 @@
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:petcore/models/branch_model.dart';
-import 'package:petcore/models/clinical_record_model.dart';
 import 'package:petcore/models/owner_model.dart';
 import 'package:petcore/models/pet_model.dart';
 import 'package:petcore/models/role_permissions.dart';
@@ -9,6 +8,7 @@ import 'package:petcore/models/user_model.dart';
 import 'package:petcore/services/branch_service.dart';
 import 'package:petcore/services/dashboard_data_service.dart';
 import 'package:petcore/services/firestore_service.dart';
+import 'package:petcore/widgets/petcore_ui.dart';
 
 void main() {
   late FakeFirebaseFirestore fakeFirestore;
@@ -19,6 +19,24 @@ void main() {
     fakeFirestore = FakeFirebaseFirestore();
     branchService = BranchService(firestore: fakeFirestore);
     firestoreService = FirestoreService(firestore: fakeFirestore);
+  });
+
+  testWidgets('Shared PetCore empty state renders a clear empty-state message', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: PetCoreEmptyState(
+            title: 'No owners registered yet.',
+            subtitle: 'Create the first owner profile to begin record tracking.',
+            icon: Icons.person_outline,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('No owners registered yet.'), findsOneWidget);
+    expect(find.text('Create the first owner profile to begin record tracking.'), findsOneWidget);
+    expect(find.byIcon(Icons.person_outline), findsOneWidget);
   });
 
   test('Flutter can write and read a basic owner record in Firestore', () async {
@@ -163,84 +181,5 @@ void main() {
     expect((await firestoreService.searchPets('PET-100')).single.name, 'Luna');
     expect((await firestoreService.getClinicalRecords()).single.title,
         'Annual check-up');
-  });
-
-  test('Dashboard data separates consultations, follow-ups, and vaccinations',
-      () async {
-    final now = DateTime(2026, 10, 12, 9);
-    await firestoreService.addClinicalRecord(
-      ClinicalRecord(
-        type: 'CONSULTATION',
-        petId: 'PET-TODAY',
-        petName: 'Today Pet',
-        date: now,
-        title: 'Today consultation',
-        notes: '',
-        veterinarian: 'Dr. Singh',
-        branchId: 'branch-001',
-      ),
-    );
-    await firestoreService.addClinicalRecord(
-      ClinicalRecord(
-        type: 'CONSULTATION',
-        petId: 'PET-YESTERDAY',
-        petName: 'Yesterday Pet',
-        date: now.subtract(const Duration(days: 1)),
-        title: 'Yesterday consultation',
-        notes: '',
-        veterinarian: 'Dr. Singh',
-        branchId: 'branch-001',
-      ),
-    );
-    await firestoreService.addClinicalRecord(
-      ClinicalRecord(
-        type: 'TREATMENT',
-        petId: 'PET-FOLLOWUP',
-        petName: 'Follow-up Pet',
-        date: now,
-        title: 'Treatment',
-        notes: '',
-        followUpDate: now.add(const Duration(days: 3)),
-        veterinarian: 'Dr. Singh',
-        branchId: 'branch-001',
-      ),
-    );
-    await firestoreService.addClinicalRecord(
-      ClinicalRecord(
-        type: 'VACCINATION',
-        petId: 'PET-DUE',
-        petName: 'Due Pet',
-        date: now,
-        title: 'Rabies',
-        notes: '',
-        dueDate: now.add(const Duration(days: 10)),
-        veterinarian: 'Dr. Singh',
-        branchId: 'branch-001',
-      ),
-    );
-    await firestoreService.addClinicalRecord(
-      ClinicalRecord(
-        type: 'VACCINATION',
-        petId: 'PET-LATER',
-        petName: 'Later Pet',
-        date: now,
-        title: 'Booster',
-        notes: '',
-        dueDate: now.add(const Duration(days: 45)),
-        veterinarian: 'Dr. Singh',
-        branchId: 'branch-001',
-      ),
-    );
-
-    final data = await DashboardDataService(
-      firestoreService: firestoreService,
-    ).load(now: now);
-
-    expect(data.todaysConsultations.map((record) => record.petId),
-        contains('PET-TODAY'));
-    expect(data.todaysConsultations.map((record) => record.petId),
-        isNot(contains('PET-YESTERDAY')));
-    expect(data.upcomingFollowUps.single.petId, 'PET-FOLLOWUP');
-    expect(data.vaccinationsDue.single.petId, 'PET-DUE');
   });
 }

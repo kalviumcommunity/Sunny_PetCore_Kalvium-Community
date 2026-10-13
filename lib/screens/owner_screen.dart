@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/owner_model.dart';
 import '../services/firestore_service.dart';
+import '../widgets/petcore_ui.dart';
 import 'owner_profile_screen.dart';
 import 'owner_registration_screen.dart';
 
@@ -64,32 +65,30 @@ class _OwnerScreenState extends State<OwnerScreen> {
         title: const Text('Owners'),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const PetCoreLoadingState()
           : _owners.isEmpty
-              ? const Center(child: Text('No owners registered yet.'))
+              ? const PetCoreEmptyState(
+                  title: 'No owners registered yet.',
+                  subtitle: 'Create the first owner profile to begin record tracking.',
+                  icon: Icons.person_outline,
+                )
               : ListView.builder(
                   itemCount: _owners.length,
                   itemBuilder: (context, index) {
                     final owner = _owners[index];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      child: ListTile(
-                        leading: const CircleAvatar(child: Icon(Icons.person)),
-                        title: Text(owner.name),
-                        subtitle: Text(
+                    return PetCoreInfoCard(
+                      title: owner.name,
+                      subtitle:
                           'Phone: ${owner.phone}\nEmail: ${owner.email}\nAddress: ${owner.address}',
-                        ),
-                        isThreeLine: true,
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                        onTap: () => _navigateToProfile(owner),
-                      ),
+                      leadingIcon: Icons.person,
+                      onTap: () => _navigateToProfile(owner),
                     );
                   },
                 ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: _navigateToRegistration,
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text('Add owner'),
       ),
     );
   }
