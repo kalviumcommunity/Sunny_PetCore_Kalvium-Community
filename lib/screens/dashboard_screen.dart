@@ -239,6 +239,12 @@ class _DashboardHomeState extends State<_DashboardHome> {
                 records: dashboardData.todaysConsultations,
               ),
               _RecordSection(
+                title: "Today's Follow-ups",
+                icon: Icons.event_available_outlined,
+                records: dashboardData.todaysFollowUps,
+                dateSelector: (record) => record.followUpDate,
+              ),
+              _RecordSection(
                 title: 'Upcoming Follow-ups',
                 icon: Icons.event_note_outlined,
                 records: dashboardData.upcomingFollowUps,

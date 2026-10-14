@@ -10,14 +10,23 @@ class DashboardDataService {
   Future<DashboardData> load({DateTime? now}) async {
     final currentTime = now ?? DateTime.now();
     final records = await firestoreService.getClinicalRecords();
+
     final todayConsultations = records.where((record) {
-      return record.type == 'CONSULTATION' &&
-          _isSameDay(record.date, currentTime);
-    }).toList();
+      return record.type == 'CONSULTATION' && _isSameDay(record.date, currentTime);
+    }).toList()
+      ..sort((first, second) => first.date.compareTo(second.date));
+
+    final todaysFollowUps = records.where((record) {
+      final date = record.followUpDate;
+      return date != null && _isSameDay(date, currentTime);
+    }).toList()
+      ..sort((first, second) => first.followUpDate!.compareTo(second.followUpDate!));
 
     final upcomingFollowUps = records.where((record) {
       final date = record.followUpDate;
-      return date != null && !date.isBefore(currentTime);
+      return date != null &&
+          !date.isBefore(currentTime) &&
+          !_isSameDay(date, currentTime);
     }).toList()
       ..sort((first, second) =>
           first.followUpDate!.compareTo(second.followUpDate!));
@@ -33,6 +42,7 @@ class DashboardDataService {
 
     return DashboardData(
       todaysConsultations: todayConsultations,
+      todaysFollowUps: todaysFollowUps,
       upcomingFollowUps: upcomingFollowUps,
       vaccinationsDue: vaccinationsDue,
     );
