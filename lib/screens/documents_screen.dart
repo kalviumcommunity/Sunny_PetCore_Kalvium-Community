@@ -1,11 +1,10 @@
-import 'dart:io';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/document_model.dart';
 import '../services/medical_firestore_service.dart';
+import '../widgets/petcore_ui.dart';
 
 class DocumentsScreen extends StatefulWidget {
   final String petId;
@@ -37,24 +36,34 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   }
 
   Future<void> _pickAndUploadDocument() async {
-    final result = await FilePicker.platform.pickFiles();
-    if (result == null || result.files.isEmpty) return;
-    final path = result.files.single.path;
-    if (path == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('The selected file could not be read.')),
-      );
-      return;
-    }
-
-    setState(() {
-      _isUploading = true;
-      _uploadProgress = 0;
-    });
     try {
+      final result = await FilePicker.platform.pickFiles(
+        withData: true,
+        type: FileType.custom,
+        allowedExtensions: [
+          'pdf',
+          'jpg',
+          'jpeg',
+          'png',
+          'doc',
+          'docx',
+        ],
+      );
+      if (result == null || result.files.isEmpty) return;
+
+      final selectedFile = result.files.single;
+      final bytes = selectedFile.bytes;
+      if (bytes == null) {
+        throw StateError('The selected file could not be read.');
+      }
+
+      setState(() {
+        _isUploading = true;
+        _uploadProgress = 0;
+      });
       await _medicalService.uploadDocument(
-        File(path),
+        bytes,
+        selectedFile.name,
         widget.petId,
         _documentType,
         onProgress: (progress) {
@@ -125,7 +134,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
               future: _documentsFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                    return const PetCoreLoadingState(message: 'Loading documents...');
                 }
                 if (snapshot.hasError) {
                   return Center(
@@ -141,7 +150,11 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                 }
                 final documents = snapshot.data ?? [];
                 if (documents.isEmpty) {
-                  return const Center(child: Text('No documents uploaded yet.'));
+                  return const PetCoreEmptyState(
+                    title: 'No documents uploaded yet.',
+                    subtitle: 'Upload reports, prescriptions, or certificates for this pet.',
+                    icon: Icons.folder_open_outlined,
+                  );
                 }
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
