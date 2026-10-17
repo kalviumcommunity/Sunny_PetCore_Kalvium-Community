@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../services/medical_firestore_service.dart';
+import '../utils/seed_test_data.dart';
 import 'consultation_form_screen.dart';
 import 'treatment_form_screen.dart';
 
@@ -18,6 +19,7 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen> {
   final _medicalService = MedicalFirestoreService();
   late Future<List<Map<String, dynamic>>> _historyFuture;
   String _selectedType = 'all';
+  bool _isSeedingTestData = false;
 
   @override
   void initState() {
@@ -91,6 +93,25 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen> {
     });
   }
 
+  Future<void> _seedCrossBranchTestData() async {
+    setState(() => _isSeedingTestData = true);
+    try {
+      await seedCrossBranchTestData();
+      if (!mounted) return;
+      setState(_loadHistory);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cross-branch test data added.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not seed test data: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSeedingTestData = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     const filters = <String, String>{
@@ -102,7 +123,18 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen> {
     };
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Medical History')),
+      appBar: AppBar(
+        title: const Text('Medical History'),
+        actions: [
+          if (widget.petId == 'PET-001')
+            IconButton(
+              onPressed:
+                  _isSeedingTestData ? null : _seedCrossBranchTestData,
+              tooltip: 'Seed cross-branch test data',
+              icon: const Icon(Icons.science_outlined),
+            ),
+        ],
+      ),
       body: Column(
         children: [
           SizedBox(
