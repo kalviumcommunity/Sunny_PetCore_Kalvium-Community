@@ -116,6 +116,30 @@ class FirestoreService {
     }).toList();
   }
 
+  // Get all pets belonging to a specific owner
+  Future<List<PetModel>> getPetsByOwner(String ownerId) async {
+    final snapshot =
+        await petsCollection.where('ownerId', isEqualTo: ownerId).get();
+    return snapshot.docs.map((doc) {
+      return PetModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+    }).toList();
+  }
+
+  // Generate the next unique Pet ID (PET-001, PET-002, ...)
+  Future<String> getNextPetId() async {
+    final snapshot = await petsCollection.get();
+    int maxNumber = 0;
+    for (final doc in snapshot.docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      final petId = data['petId'] as String? ?? '';
+      if (petId.startsWith('PET-')) {
+        final number = int.tryParse(petId.substring(4)) ?? 0;
+        if (number > maxNumber) maxNumber = number;
+      }
+    }
+    return 'PET-${(maxNumber + 1).toString().padLeft(3, '0')}';
+  }
+
   Future<List<PetModel>> searchPets(String query) async {
     final normalizedQuery = query.trim().toLowerCase();
     if (normalizedQuery.isEmpty) return [];

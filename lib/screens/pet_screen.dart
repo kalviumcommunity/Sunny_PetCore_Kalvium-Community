@@ -3,6 +3,7 @@ import '../models/pet_model.dart';
 import '../services/firestore_service.dart';
 import '../widgets/petcore_ui.dart';
 import 'documents_screen.dart';
+import 'pet_registration_screen.dart';
 
 class PetScreen extends StatefulWidget {
   final FirestoreService firestoreService;
@@ -36,95 +37,18 @@ class _PetScreenState extends State<PetScreen> {
     }
   }
 
-  void _showAddPetDialog() {
-    final petIdController = TextEditingController();
-    final nameController = TextEditingController();
-    final speciesController = TextEditingController();
-    final breedController = TextEditingController();
-    final genderController = TextEditingController();
-    final dobAgeController = TextEditingController();
-    final weightController = TextEditingController();
-    final colorController = TextEditingController();
-    final ownerIdController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add Pet'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: petIdController,
-                decoration: const InputDecoration(labelText: 'Pet ID'),
-              ),
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Name'),
-              ),
-              TextField(
-                controller: speciesController,
-                decoration: const InputDecoration(labelText: 'Species'),
-              ),
-              TextField(
-                controller: breedController,
-                decoration: const InputDecoration(labelText: 'Breed'),
-              ),
-              TextField(
-                controller: genderController,
-                decoration: const InputDecoration(labelText: 'Gender'),
-              ),
-              TextField(
-                controller: dobAgeController,
-                decoration: const InputDecoration(labelText: 'DOB / Age'),
-              ),
-              TextField(
-                controller: weightController,
-                decoration: const InputDecoration(labelText: 'Weight (kg)'),
-                keyboardType: TextInputType.number,
-              ),
-              TextField(
-                controller: colorController,
-                decoration: const InputDecoration(labelText: 'Color'),
-              ),
-              TextField(
-                controller: ownerIdController,
-                decoration: const InputDecoration(labelText: 'Owner ID'),
-              ),
-            ],
-          ),
+  Future<void> _openRegisterPet() async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PetRegistrationScreen(
+          firestoreService: widget.firestoreService,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.trim().isEmpty) return;
-
-              final newPet = PetModel(
-                petId: petIdController.text.trim(),
-                name: nameController.text.trim(),
-                species: speciesController.text.trim(),
-                breed: breedController.text.trim(),
-                gender: genderController.text.trim(),
-                dobAge: dobAgeController.text.trim(),
-                weight: double.tryParse(weightController.text.trim()) ?? 0.0,
-                color: colorController.text.trim(),
-                ownerId: ownerIdController.text.trim(),
-              );
-
-              await widget.firestoreService.addPet(newPet);
-              if (ctx.mounted) Navigator.pop(ctx);
-              _fetchPets();
-            },
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
+    if (result == true) {
+      _fetchPets();
+    }
   }
 
   void _openDocuments(PetModel pet) {
@@ -172,7 +96,7 @@ class _PetScreenState extends State<PetScreen> {
                   },
                 ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddPetDialog,
+        onPressed: _openRegisterPet,
         icon: const Icon(Icons.add),
         label: const Text('Add pet'),
       ),
