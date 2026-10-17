@@ -152,6 +152,12 @@ class FirestoreService {
     }).toList();
   }
 
+  // Update an existing pet record
+  Future<void> updatePet(PetModel pet) async {
+    if (pet.id == null) throw ArgumentError('Pet ID cannot be null');
+    await petsCollection.doc(pet.id).update(pet.toMap());
+  }
+
   Future<String> addClinicalRecord(ClinicalRecord record) async {
     final docRef = await clinicalRecordsCollection.add(record.toMap());
     return docRef.id;
