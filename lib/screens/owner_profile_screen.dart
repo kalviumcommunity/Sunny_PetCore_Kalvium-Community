@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import '../models/owner_model.dart';
 import '../models/pet_model.dart';
 import '../services/firestore_service.dart';
+import '../services/medical_firestore_service.dart';
 import 'owner_registration_screen.dart';
+import 'pet_profile_screen.dart';
+import 'pet_registration_screen.dart';
 
 // Owner Profile screen displaying the owner's complete details and their pets.
 // Supports edit, delete, and disable actions.
@@ -55,6 +58,21 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
       });
     } catch (e) {
       setState(() => _isLoadingPets = false);
+    }
+  }
+
+  Future<void> _addPet() async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PetRegistrationScreen(
+          firestoreService: widget.firestoreService,
+          preSelectedOwner: _owner,
+        ),
+      ),
+    );
+    if (result == true) {
+      _fetchPets();
     }
   }
 
@@ -346,6 +364,12 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
                     label: Text('${_pets.length}'),
                     visualDensity: VisualDensity.compact,
                   ),
+                const SizedBox(width: 8),
+                FilledButton.tonalIcon(
+                  onPressed: _addPet,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add Pet'),
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -382,6 +406,18 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
                 return Card(
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PetProfileScreen(
+                            pet: pet,
+                            firestoreService: widget.firestoreService,
+                            medicalFirestoreService: MedicalFirestoreService(),
+                          ),
+                        ),
+                      ).then((_) => _fetchPets());
+                    },
                     leading: CircleAvatar(
                       backgroundColor: theme.colorScheme.secondaryContainer,
                       child: Icon(
@@ -398,6 +434,7 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
                       'Age: ${pet.dobAge} • Weight: ${pet.weight} kg • Color: ${pet.color}',
                     ),
                     isThreeLine: true,
+                    trailing: const Icon(Icons.chevron_right),
                   ),
                 );
               }),
