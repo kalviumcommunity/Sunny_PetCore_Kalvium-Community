@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/pet_model.dart';
 import '../services/firestore_service.dart';
 import '../widgets/petcore_ui.dart';
+import 'documents_screen.dart';
 
 class PetScreen extends StatefulWidget {
   final FirestoreService firestoreService;
@@ -126,6 +127,15 @@ class _PetScreenState extends State<PetScreen> {
     );
   }
 
+  void _openDocuments(PetModel pet) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DocumentsScreen(petId: pet.petId),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -152,6 +162,12 @@ class _PetScreenState extends State<PetScreen> {
                           'Weight: ${pet.weight} kg | Color: ${pet.color}\n'
                           'Owner ID: ${pet.ownerId}',
                       leadingIcon: Icons.pets,
+                      onTap: () => _openDocuments(pet),
+                      trailing: IconButton(
+                        tooltip: 'Medical documents',
+                        onPressed: () => _openDocuments(pet),
+                        icon: const Icon(Icons.folder_open_outlined),
+                      ),
                     );
                   },
                 ),

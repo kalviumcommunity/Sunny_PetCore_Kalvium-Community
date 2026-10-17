@@ -150,6 +150,61 @@ void main() {
     expect(branches.single.isActive, isFalse);
   });
 
+  test('Dashboard follow-up data separates today from future follow-ups', () async {
+    final pet = PetModel(
+      petId: 'PET-200',
+      name: 'Milo',
+      species: 'Dog',
+      breed: 'Beagle',
+      gender: 'Male',
+      dobAge: '3 years',
+      weight: 12.8,
+      color: 'Black and white',
+      ownerId: 'OWNER-200',
+    );
+    await firestoreService.addPet(pet);
+
+    final todayFollowUp = ClinicalRecord(
+      type: 'CONSULTATION',
+      petId: pet.petId,
+      petName: pet.name,
+      date: DateTime(2026, 10, 13),
+      title: 'Check wound review',
+      notes: 'Review bandage.',
+      followUpDate: DateTime(2026, 10, 13),
+      veterinarian: 'Dr. Singh',
+      branchId: 'branch-001',
+    );
+    final futureFollowUp = ClinicalRecord(
+      type: 'CONSULTATION',
+      petId: pet.petId,
+      petName: pet.name,
+      date: DateTime(2026, 10, 12),
+      title: 'Follow-up after surgery',
+      notes: 'Check healing.',
+      followUpDate: DateTime(2026, 10, 16),
+      veterinarian: 'Dr. Singh',
+      branchId: 'branch-001',
+    );
+
+    await firestoreService.addClinicalRecord(todayFollowUp);
+    await firestoreService.addClinicalRecord(futureFollowUp);
+
+    final dashboardData = await DashboardDataService(
+      firestoreService: firestoreService,
+    ).load(now: DateTime(2026, 10, 13));
+
+    expect(dashboardData.todaysFollowUps.length, 1);
+    expect(dashboardData.todaysFollowUps.single.title, 'Check wound review');
+    expect(dashboardData.upcomingFollowUps.length, 1);
+    expect(dashboardData.upcomingFollowUps.single.title,
+        'Follow-up after surgery');
+    expect(
+      dashboardData.upcomingFollowUps.single.followUpDate,
+      DateTime(2026, 10, 16),
+    );
+  });
+
   test('Clinical records can be stored and pets can be searched', () async {
     final pet = PetModel(
       petId: 'PET-100',
