@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import '../models/pet_model.dart';
 import '../services/firestore_service.dart';
+import '../services/medical_firestore_service.dart';
 import '../widgets/petcore_ui.dart';
-import 'documents_screen.dart';
+import 'pet_profile_screen.dart';
 import 'pet_registration_screen.dart';
 
 class PetScreen extends StatefulWidget {
@@ -51,13 +52,17 @@ class _PetScreenState extends State<PetScreen> {
     }
   }
 
-  void _openDocuments(PetModel pet) {
+  void _openPetProfile(PetModel pet) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => DocumentsScreen(petId: pet.petId),
+        builder: (_) => PetProfileScreen(
+          pet: pet,
+          firestoreService: widget.firestoreService,
+          medicalFirestoreService: MedicalFirestoreService(),
+        ),
       ),
-    );
+    ).then((_) => _fetchPets());
   }
 
   @override
@@ -83,15 +88,9 @@ class _PetScreenState extends State<PetScreen> {
                       subtitle:
                           'Species: ${pet.species} | Breed: ${pet.breed}\n'
                           'Gender: ${pet.gender} | DOB/Age: ${pet.dobAge}\n'
-                          'Weight: ${pet.weight} kg | Color: ${pet.color}\n'
-                          'Owner ID: ${pet.ownerId}',
+                          'Weight: ${pet.weight} kg | Color: ${pet.color}',
                       leadingIcon: Icons.pets,
-                      onTap: () => _openDocuments(pet),
-                      trailing: IconButton(
-                        tooltip: 'Medical documents',
-                        onPressed: () => _openDocuments(pet),
-                        icon: const Icon(Icons.folder_open_outlined),
-                      ),
+                      onTap: () => _openPetProfile(pet),
                     );
                   },
                 ),

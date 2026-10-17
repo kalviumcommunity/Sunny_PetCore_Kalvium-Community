@@ -3,16 +3,18 @@ import '../models/owner_model.dart';
 import '../models/pet_model.dart';
 import '../services/firestore_service.dart';
 
-// Pet Registration form screen with validation, auto Pet ID generation,
+// Pet Registration / Edit form screen with validation, auto Pet ID generation,
 // owner linking, and Firestore integration.
 class PetRegistrationScreen extends StatefulWidget {
   final FirestoreService firestoreService;
   final OwnerModel? preSelectedOwner; // If opened from owner profile
+  final PetModel? existingPet; // null = create mode, non-null = edit mode
 
   const PetRegistrationScreen({
     super.key,
     required this.firestoreService,
     this.preSelectedOwner,
+    this.existingPet,
   });
 
   @override
@@ -39,6 +41,8 @@ class _PetRegistrationScreenState extends State<PetRegistrationScreen> {
   OwnerModel? _selectedOwner;
   bool _isLoadingOwners = true;
 
+  bool get _isEditMode => widget.existingPet != null;
+
   final List<String> _speciesOptions = [
     'Dog',
     'Cat',
@@ -56,27 +60,55 @@ class _PetRegistrationScreenState extends State<PetRegistrationScreen> {
   }
 
   Future<void> _loadInitialData() async {
-    // Load Pet ID and owners in parallel
-    final results = await Future.wait([
-      widget.firestoreService.getNextPetId(),
-      widget.firestoreService.getActiveOwners(),
-    ]);
+    if (_isEditMode) {
+      // Edit mode: pre-fill fields from existing pet
+      final pet = widget.existingPet!;
+      _nameController.text = pet.name;
+      _breedController.text = pet.breed;
+      _dobAgeController.text = pet.dobAge;
+      _weightController.text = pet.weight.toString();
+      _colorController.text = pet.color;
+      _selectedSpecies = _speciesOptions.contains(pet.species)
+          ? pet.species
+          : 'Other';
+      _selectedGender = pet.gender == 'Female' ? 'Female' : 'Male';
+      _generatedPetId = pet.petId;
 
-    if (!mounted) return;
-    setState(() {
-      _generatedPetId = results[0] as String;
-      _isLoadingId = false;
-      _owners = results[1] as List<OwnerModel>;
-      _isLoadingOwners = false;
-
-      // Pre-select owner if provided
-      if (widget.preSelectedOwner != null) {
-        _selectedOwner = _owners.firstWhere(
-          (o) => o.id == widget.preSelectedOwner!.id,
-          orElse: () => widget.preSelectedOwner!,
+      // Load owners for dropdown
+      final owners = await widget.firestoreService.getActiveOwners();
+      if (!mounted) return;
+      setState(() {
+        _owners = owners;
+        _isLoadingOwners = false;
+        _isLoadingId = false;
+        _selectedOwner = owners.firstWhere(
+          (o) => o.id == pet.ownerId,
+          orElse: () => owners.first,
         );
-      }
-    });
+      });
+    } else {
+      // Create mode: generate Pet ID and load owners
+      final results = await Future.wait([
+        widget.firestoreService.getNextPetId(),
+        widget.firestoreService.getActiveOwners(),
+      ]);
+
+      if (!mounted) return;
+      setState(() {
+        _generatedPetId = results[0] as String;
+        _isLoadingId = false;
+        _owners = results[1] as List<OwnerModel>;
+        _isLoadingOwners = false;
+
+        // Pre-select owner if provided
+        if (widget.preSelectedOwner != null) {
+          _selectedOwner = _owners.firstWhere(
+            (o) => o.id == widget.preSelectedOwner!.id,
+            orElse: () => widget.preSelectedOwner!,
+          );
+        }
+      });
+    }
   }
 
   @override
@@ -107,29 +139,56 @@ class _PetRegistrationScreenState extends State<PetRegistrationScreen> {
     setState(() => _isSaving = true);
 
     try {
-      // 3. Create pet and save to Firestore
-      final newPet = PetModel(
-        petId: _generatedPetId,
-        name: _nameController.text.trim(),
-        species: _selectedSpecies,
-        breed: _breedController.text.trim(),
-        gender: _selectedGender,
-        dobAge: _dobAgeController.text.trim(),
-        weight: double.tryParse(_weightController.text.trim()) ?? 0.0,
-        color: _colorController.text.trim(),
-        ownerId: _selectedOwner!.id!,
-      );
+      if (_isEditMode) {
+        // Update existing pet
+        final updatedPet = PetModel(
+          id: widget.existingPet!.id,
+          petId: widget.existingPet!.petId,
+          name: _nameController.text.trim(),
+          species: _selectedSpecies,
+          breed: _breedController.text.trim(),
+          gender: _selectedGender,
+          dobAge: _dobAgeController.text.trim(),
+          weight: double.tryParse(_weightController.text.trim()) ?? 0.0,
+          color: _colorController.text.trim(),
+          ownerId: _selectedOwner!.id!,
+        );
 
-      await widget.firestoreService.addPet(newPet);
+        await widget.firestoreService.updatePet(updatedPet);
 
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${newPet.name} (${newPet.petId}) registered!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      Navigator.pop(context, true);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pet updated successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pop(context, true);
+      } else {
+        // Create new pet
+        final newPet = PetModel(
+          petId: _generatedPetId,
+          name: _nameController.text.trim(),
+          species: _selectedSpecies,
+          breed: _breedController.text.trim(),
+          gender: _selectedGender,
+          dobAge: _dobAgeController.text.trim(),
+          weight: double.tryParse(_weightController.text.trim()) ?? 0.0,
+          color: _colorController.text.trim(),
+          ownerId: _selectedOwner!.id!,
+        );
+
+        await widget.firestoreService.addPet(newPet);
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${newPet.name} (${newPet.petId}) registered!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pop(context, true);
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -147,7 +206,7 @@ class _PetRegistrationScreenState extends State<PetRegistrationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Register Pet'),
+        title: Text(_isEditMode ? 'Edit Pet' : 'Register Pet'),
       ),
       body: _isLoadingId || _isLoadingOwners
           ? const Center(child: CircularProgressIndicator())
@@ -362,8 +421,9 @@ class _PetRegistrationScreenState extends State<PetRegistrationScreen> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Icon(Icons.pets),
-                        label: const Text('Register Pet'),
+                            : Icon(_isEditMode ? Icons.save : Icons.pets),
+                        label: Text(
+                            _isEditMode ? 'Save Changes' : 'Register Pet'),
                       ),
                     ),
                   ],
