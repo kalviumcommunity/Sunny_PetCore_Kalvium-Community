@@ -1,6 +1,7 @@
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:petcore/models/branch_model.dart';
+import 'package:petcore/models/clinical_record_model.dart';
 import 'package:petcore/models/owner_model.dart';
 import 'package:petcore/models/pet_model.dart';
 import 'package:petcore/models/role_permissions.dart';
@@ -203,6 +204,17 @@ void main() {
       dashboardData.upcomingFollowUps.single.followUpDate,
       DateTime(2026, 10, 16),
     );
+
+    final otherBranchData = await DashboardDataService(
+      firestoreService: firestoreService,
+    ).load(
+      now: DateTime(2026, 10, 13),
+      branchId: 'branch-999',
+    );
+    expect(otherBranchData.todaysConsultations, isEmpty);
+    expect(otherBranchData.todaysFollowUps, isEmpty);
+    expect(otherBranchData.upcomingFollowUps, isEmpty);
+    expect(otherBranchData.vaccinationsDue, isEmpty);
   });
 
   test('Clinical records can be stored and pets can be searched', () async {
