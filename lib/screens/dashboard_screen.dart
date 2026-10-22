@@ -175,7 +175,7 @@ class _DashboardHomeState extends State<_DashboardHome> {
   void _reloadRecords() {
     _dashboardFuture = DashboardDataService(
       firestoreService: widget.firestoreService,
-    ).load();
+    ).load(branchId: widget.profile.branchId);
   }
 
   Future<void> _refreshRecords() async {
@@ -186,8 +186,10 @@ class _DashboardHomeState extends State<_DashboardHome> {
   @override
   Widget build(BuildContext context) {
     final role = UserRole.fromValue(widget.profile.role);
+    final hasBranch = widget.profile.branchId.trim().isNotEmpty;
     final canCreateClinical =
-        role == UserRole.admin || role == UserRole.veterinarian;
+      hasBranch &&
+      (role == UserRole.admin || role == UserRole.veterinarian);
     final canRegisterPet =
         role == UserRole.admin || role == UserRole.clinicStaff;
 
@@ -222,6 +224,19 @@ class _DashboardHomeState extends State<_DashboardHome> {
               Text(
                 'Branch: ${widget.profile.branchId.isEmpty ? 'Unassigned' : widget.profile.branchId}',
               ),
+              if (!hasBranch) ...[
+                const SizedBox(height: 12),
+                Card(
+                  color: Theme.of(context).colorScheme.errorContainer,
+                  child: const ListTile(
+                    leading: Icon(Icons.info_outline),
+                    title: Text('Branch assignment required'),
+                    subtitle: Text(
+                      'An administrator must assign your branch before you can create or view clinical records.',
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               _QuickActions(
                 firestoreService: widget.firestoreService,
