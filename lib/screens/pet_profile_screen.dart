@@ -240,21 +240,25 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                       .toList(),
                 ),
                 PetProfileSectionCard(
-                  title: 'Prescriptions',
+                  title: 'Prescription History',
                   icon: Icons.receipt_long_outlined,
                   count: data.prescriptions.length,
-                  emptyMessage: 'No prescriptions yet.',
+                  emptyMessage: 'No prescription history available.',
                   items: data.prescriptions
                       .map(
                         (record) => ListTile(
                           dense: true,
                           contentPadding: EdgeInsets.zero,
-                          title: Text(record.medicine),
+                          title: Text('Medicine: ${record.medicine}'),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('${record.dosage} • ${record.frequency} • ${record.duration}'),
-                              _meta(record.vetId, record.branchId, record.createdAt),
+                              Text('Dosage: ${record.dosage}'),
+                              Text('Frequency: ${record.frequency}'),
+                              Text('Duration: ${record.duration}'),
+                              Text('Instructions: ${record.instructions}'),
+                              Text('Date: ${_date(record.createdAt)}'),
+                              Text('Veterinarian: ${record.vetId}'),
                             ],
                           ),
                         ),

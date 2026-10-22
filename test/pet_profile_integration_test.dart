@@ -1,9 +1,13 @@
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
 import 'package:petcore/models/consultation_model.dart';
+import 'package:petcore/models/pet_model.dart';
 import 'package:petcore/models/prescription_model.dart';
 import 'package:petcore/models/treatment_model.dart';
 import 'package:petcore/models/vaccination_model.dart';
+import 'package:petcore/screens/pet_profile_screen.dart';
 import 'package:petcore/services/medical_firestore_service.dart';
 
 void main() {
@@ -149,5 +153,90 @@ void main() {
     expect(prescriptions.length, 1);
     expect(prescriptions.single.petId, targetPetId);
     expect(prescriptions.single.medicine, 'Amoxicillin');
+  });
+
+  testWidgets('Pet profile displays prescription history details', (tester) async {
+    final createdAt = DateTime(2026, 10, 22);
+    await medicalService.addPrescription(
+      PrescriptionModel(
+        petId: targetPetId,
+        vetId: 'vet-1',
+        branchId: 'branch-1',
+        medicine: 'Amoxicillin',
+        dosage: '250 mg',
+        frequency: 'Twice daily',
+        duration: '5 days',
+        instructions: 'After meals',
+        createdAt: createdAt,
+      ),
+    );
+
+    final pet = PetModel(
+      petId: targetPetId,
+      name: 'Luna',
+      species: 'Cat',
+      breed: 'Siamese',
+      gender: 'Female',
+      dobAge: '4 years',
+      weight: 4.2,
+      color: 'Cream',
+      ownerId: 'OWNER-100',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PetProfileScreen(
+          pet: pet,
+          medicalService: medicalService,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Prescription History'),
+      300,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Prescription History'), findsOneWidget);
+    expect(find.text('Medicine: Amoxicillin'), findsOneWidget);
+    expect(find.text('Dosage: 250 mg'), findsOneWidget);
+    expect(find.text('Frequency: Twice daily'), findsOneWidget);
+    expect(find.text('Duration: 5 days'), findsOneWidget);
+    expect(find.text('Instructions: After meals'), findsOneWidget);
+    expect(find.text('Date: ${DateFormat.yMMMd().format(createdAt)}'), findsOneWidget);
+    expect(find.text('Veterinarian: vet-1'), findsOneWidget);
+  });
+
+  testWidgets('Pet profile shows empty prescription history state', (tester) async {
+    final pet = PetModel(
+      petId: targetPetId,
+      name: 'Luna',
+      species: 'Cat',
+      breed: 'Siamese',
+      gender: 'Female',
+      dobAge: '4 years',
+      weight: 4.2,
+      color: 'Cream',
+      ownerId: 'OWNER-100',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PetProfileScreen(
+          pet: pet,
+          medicalService: medicalService,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Prescription History'),
+      300,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Prescription History'), findsOneWidget);
+    expect(find.text('No prescription history available.'), findsOneWidget);
   });
 }
