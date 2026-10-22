@@ -116,16 +116,53 @@ class FirestoreService {
     }).toList();
   }
 
-  Future<List<PetModel>> searchPets(String query) async {
-    final normalizedQuery = query.trim().toLowerCase();
-    if (normalizedQuery.isEmpty) return [];
+  // Read pets belonging to a specific owner
+  Future<List<PetModel>> getPetsByOwner(String ownerId) async {
+    final snapshot = await petsCollection.where('ownerId', isEqualTo: ownerId).get();
+    return snapshot.docs.map((doc) {
+      return PetModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+    }).toList();
+  }
 
+  Future<List<PetModel>> searchPets(String query) async {
+    final trimmedQuery = query.trim();
+    if (trimmedQuery.isEmpty) return [];
+
+    if (_looksLikePhoneQuery(trimmedQuery)) {
+      final normalizedPhoneQuery = _normalizePhone(trimmedQuery);
+
+      final owners = await getOwners();
+      final ownerIds = owners
+          .where(
+            (owner) => _normalizePhone(owner.phone).contains(normalizedPhoneQuery),
+          )
+          .map((owner) => owner.id)
+          .whereType<String>()
+          .toSet();
+
+      if (ownerIds.isEmpty) return [];
+
+      final pets = await getPets();
+      return pets.where((pet) => ownerIds.contains(pet.ownerId)).toList();
+    }
+
+    final normalizedQuery = trimmedQuery.toLowerCase();
     final pets = await getPets();
     return pets.where((pet) {
       return pet.petId.toLowerCase().contains(normalizedQuery) ||
           pet.name.toLowerCase().contains(normalizedQuery) ||
           pet.species.toLowerCase().contains(normalizedQuery);
     }).toList();
+  }
+
+  String _normalizePhone(String value) {
+    return value.replaceAll(RegExp(r'[^0-9+]'), '');
+  }
+
+  bool _looksLikePhoneQuery(String query) {
+    if (RegExp(r'[A-Za-z]').hasMatch(query)) return false;
+    final normalized = _normalizePhone(query);
+    return normalized.length >= 10;
   }
 
   Future<String> addClinicalRecord(ClinicalRecord record) async {

@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/clinical_record_model.dart';
 import '../models/dashboard_data.dart';
@@ -445,6 +446,7 @@ class _PetSearchDialogState extends State<_PetSearchDialog> {
   final _queryController = TextEditingController();
   List<PetModel> _results = [];
   bool _isLoading = false;
+  String? _message;
 
   @override
   void dispose() {
@@ -453,16 +455,61 @@ class _PetSearchDialogState extends State<_PetSearchDialog> {
   }
 
   Future<void> _search() async {
-    if (_queryController.text.trim().isEmpty) return;
+    final query = _queryController.text.trim();
+
+    if (query.isEmpty) {
+      setState(() {
+        _results = [];
+        _message = 'Enter Pet ID or Owner Phone to search.';
+      });
+      return;
+    }
+
+    if (!_looksLikePhoneQuery(query) && !_isValidPetId(query)) {
+      setState(() {
+        _results = [];
+        _message = 'Invalid Pet ID format.';
+      });
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
       final results = await widget.firestoreService.searchPets(
-        _queryController.text,
+        query,
       );
-      if (mounted) setState(() => _results = results);
+      if (!mounted) return;
+      setState(() {
+        _results = results;
+        _message =
+            results.isEmpty ? 'No pets found for this search.' : null;
+      });
+    } on FirebaseException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _results = [];
+        _message = error.message ??
+            'Could not search pets right now. Please try again.';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _results = [];
+        _message = 'Could not search pets right now. Please try again.';
+      });
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  bool _looksLikePhoneQuery(String query) {
+    if (RegExp(r'[A-Za-z]').hasMatch(query)) return false;
+    final normalized = query.replaceAll(RegExp(r'[^0-9+]'), '');
+    return normalized.length >= 10;
+  }
+
+  bool _isValidPetId(String query) {
+    return RegExp(r'^[A-Za-z0-9][A-Za-z0-9_-]*$').hasMatch(query);
   }
 
   @override
@@ -478,7 +525,7 @@ class _PetSearchDialogState extends State<_PetSearchDialog> {
               controller: _queryController,
               autofocus: true,
               decoration: InputDecoration(
-                labelText: 'Pet ID, name, or species',
+                labelText: 'Pet ID or Owner Phone',
                 suffixIcon: IconButton(
                   onPressed: _isLoading ? null : _search,
                   icon: const Icon(Icons.search),
@@ -491,18 +538,41 @@ class _PetSearchDialogState extends State<_PetSearchDialog> {
                 padding: EdgeInsets.all(16),
                 child: CircularProgressIndicator(),
               )
-            else if (_results.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('No matching pets found.'),
+            else if (_message != null)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(_message!),
+              )
+            else if (_results.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '${_results.length} pet${_results.length == 1 ? '' : 's'} found',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
               )
             else
-              ..._results.map((pet) => ListTile(
-                    leading: const Icon(Icons.pets),
-                    title: Text('${pet.name} (${pet.petId})'),
-                    subtitle: Text('${pet.species} · ${pet.breed}'),
-                    onTap: () => Navigator.pop(context, pet),
-                  )),
+              const SizedBox.shrink(),
+            if (_results.isNotEmpty)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 280),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _results.length,
+                  itemBuilder: (context, index) {
+                    final pet = _results[index];
+                    return ListTile(
+                      leading: const Icon(Icons.pets),
+                      title: Text('${pet.name} (${pet.petId})'),
+                      subtitle: Text('${pet.species} · ${pet.breed}'),
+                      onTap: () => Navigator.pop(context, pet),
+                    );
+                  },
+                ),
+              ),
           ],
         ),
       ),
@@ -512,10 +582,6 @@ class _PetSearchDialogState extends State<_PetSearchDialog> {
           child: const Text('Close'),
         ),
       ],
-    );
-  }
-}
-      ),
     );
   }
 }
