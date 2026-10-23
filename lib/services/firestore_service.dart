@@ -141,9 +141,28 @@ class FirestoreService {
   }
 
   Future<List<PetModel>> searchPets(String query) async {
-    final normalizedQuery = query.trim().toLowerCase();
-    if (normalizedQuery.isEmpty) return [];
+    final trimmedQuery = query.trim();
+    if (trimmedQuery.isEmpty) return [];
 
+    if (_looksLikePhoneQuery(trimmedQuery)) {
+      final normalizedPhoneQuery = _normalizePhone(trimmedQuery);
+
+      final owners = await getOwners();
+      final ownerIds = owners
+          .where(
+            (owner) => _normalizePhone(owner.phone).contains(normalizedPhoneQuery),
+          )
+          .map((owner) => owner.id)
+          .whereType<String>()
+          .toSet();
+
+      if (ownerIds.isEmpty) return [];
+
+      final pets = await getPets();
+      return pets.where((pet) => ownerIds.contains(pet.ownerId)).toList();
+    }
+
+    final normalizedQuery = trimmedQuery.toLowerCase();
     final pets = await getPets();
     return pets.where((pet) {
       return pet.petId.toLowerCase().contains(normalizedQuery) ||

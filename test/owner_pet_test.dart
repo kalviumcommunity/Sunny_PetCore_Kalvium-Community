@@ -1,4 +1,5 @@
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:petcore/models/branch_model.dart';
 import 'package:petcore/models/clinical_record_model.dart';
@@ -248,5 +249,47 @@ void main() {
     expect((await firestoreService.searchPets('PET-100')).single.name, 'Luna');
     expect((await firestoreService.getClinicalRecords()).single.title,
         'Annual check-up');
+  });
+
+  test('Pet search supports owner phone and returns multiple pets', () async {
+    final ownerId = await firestoreService.addOwner(
+      OwnerModel(
+        name: 'Riya Patel',
+        phone: '+91 98765-43210',
+        email: 'riya@example.com',
+        address: 'Bandra, Mumbai',
+      ),
+    );
+
+    await firestoreService.addPet(
+      PetModel(
+        petId: 'PET-301',
+        name: 'Buddy',
+        species: 'Dog',
+        breed: 'Indie',
+        gender: 'Male',
+        dobAge: '3 years',
+        weight: 16.3,
+        color: 'Brown',
+        ownerId: ownerId,
+      ),
+    );
+    await firestoreService.addPet(
+      PetModel(
+        petId: 'PET-302',
+        name: 'Mimi',
+        species: 'Cat',
+        breed: 'Persian',
+        gender: 'Female',
+        dobAge: '2 years',
+        weight: 3.9,
+        color: 'White',
+        ownerId: ownerId,
+      ),
+    );
+
+    final results = await firestoreService.searchPets('9876543210');
+    expect(results.length, 2);
+    expect(results.map((pet) => pet.petId).toSet(), {'PET-301', 'PET-302'});
   });
 }

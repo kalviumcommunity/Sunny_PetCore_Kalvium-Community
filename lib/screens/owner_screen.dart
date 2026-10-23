@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/owner_model.dart';
 import '../services/firestore_service.dart';
-import '../widgets/petcore_ui.dart';
 import 'owner_profile_screen.dart';
 import 'owner_registration_screen.dart';
 
