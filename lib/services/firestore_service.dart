@@ -116,12 +116,28 @@ class FirestoreService {
     }).toList();
   }
 
-  // Read pets belonging to a specific owner
+  // Get all pets belonging to a specific owner
   Future<List<PetModel>> getPetsByOwner(String ownerId) async {
-    final snapshot = await petsCollection.where('ownerId', isEqualTo: ownerId).get();
+    final snapshot =
+        await petsCollection.where('ownerId', isEqualTo: ownerId).get();
     return snapshot.docs.map((doc) {
       return PetModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
     }).toList();
+  }
+
+  // Generate the next unique Pet ID (PET-001, PET-002, ...)
+  Future<String> getNextPetId() async {
+    final snapshot = await petsCollection.get();
+    int maxNumber = 0;
+    for (final doc in snapshot.docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      final petId = data['petId'] as String? ?? '';
+      if (petId.startsWith('PET-')) {
+        final number = int.tryParse(petId.substring(4)) ?? 0;
+        if (number > maxNumber) maxNumber = number;
+      }
+    }
+    return 'PET-${(maxNumber + 1).toString().padLeft(3, '0')}';
   }
 
   Future<List<PetModel>> searchPets(String query) async {
@@ -155,14 +171,10 @@ class FirestoreService {
     }).toList();
   }
 
-  String _normalizePhone(String value) {
-    return value.replaceAll(RegExp(r'[^0-9+]'), '');
-  }
-
-  bool _looksLikePhoneQuery(String query) {
-    if (RegExp(r'[A-Za-z]').hasMatch(query)) return false;
-    final normalized = _normalizePhone(query);
-    return normalized.length >= 10;
+  // Update an existing pet record
+  Future<void> updatePet(PetModel pet) async {
+    if (pet.id == null) throw ArgumentError('Pet ID cannot be null');
+    await petsCollection.doc(pet.id).update(pet.toMap());
   }
 
   Future<String> addClinicalRecord(ClinicalRecord record) async {

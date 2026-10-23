@@ -6,9 +6,12 @@ class DashboardDataService {
 
   const DashboardDataService({required this.firestoreService});
 
-  Future<DashboardData> load({DateTime? now}) async {
+  Future<DashboardData> load({DateTime? now, String? branchId}) async {
     final currentTime = now ?? DateTime.now();
-    final records = await firestoreService.getClinicalRecords();
+    final allRecords = await firestoreService.getClinicalRecords();
+    final records = branchId == null
+      ? allRecords
+      : allRecords.where((record) => record.branchId == branchId).toList();
 
     final todayConsultations = records.where((record) {
       return record.type == 'CONSULTATION' && _isSameDay(record.date, currentTime);

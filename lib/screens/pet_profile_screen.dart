@@ -1,27 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-
 import '../models/consultation_model.dart';
+import '../models/followup_model.dart';
+import '../models/owner_model.dart';
 import '../models/pet_model.dart';
 import '../models/prescription_model.dart';
 import '../models/treatment_model.dart';
 import '../models/vaccination_model.dart';
+import '../services/firestore_service.dart';
 import '../services/medical_firestore_service.dart';
-import '../widgets/pet_profile_section_card.dart';
-import 'consultation_form_screen.dart';
-import 'documents_screen.dart';
-import 'prescription_form_screen.dart';
-import 'treatment_form_screen.dart';
-import 'vaccination_form_screen.dart';
+import 'pet_registration_screen.dart';
 
+// Pet Profile screen displaying complete pet details, owner info,
+// and medical records summary (vaccinations, treatments, prescriptions,
+// consultations, follow-ups, documents).
 class PetProfileScreen extends StatefulWidget {
   final PetModel pet;
-  final MedicalFirestoreService? medicalService;
+  final FirestoreService firestoreService;
+  final MedicalFirestoreService medicalFirestoreService;
 
   const PetProfileScreen({
     super.key,
     required this.pet,
-    this.medicalService,
+    required this.firestoreService,
+    required this.medicalFirestoreService,
   });
 
   @override
@@ -29,261 +30,570 @@ class PetProfileScreen extends StatefulWidget {
 }
 
 class _PetProfileScreenState extends State<PetProfileScreen> {
-  late final MedicalFirestoreService _medicalService;
-  late Future<_PetProfileData> _profileFuture;
+  late PetModel _pet;
+  OwnerModel? _owner;
+  bool _isLoading = true;
+
+  // Medical record counts
+  int _consultationCount = 0;
+  int _treatmentCount = 0;
+  int _vaccinationCount = 0;
+  int _prescriptionCount = 0;
+  int _followUpCount = 0;
+  int _documentCount = 0;
+
+  // Recent records for quick view
+  List<VaccinationModel> _recentVaccinations = [];
+  List<TreatmentModel> _recentTreatments = [];
+  List<PrescriptionModel> _recentPrescriptions = [];
+  List<ConsultationModel> _recentConsultations = [];
+  List<FollowUpModel> _pendingFollowUps = [];
 
   @override
   void initState() {
     super.initState();
-    _medicalService = widget.medicalService ?? MedicalFirestoreService();
-    _profileFuture = _loadProfileData();
+    _pet = widget.pet;
+    _loadAllData();
   }
 
-  Future<_PetProfileData> _loadProfileData() async {
-    final results = await Future.wait([
-      _medicalService.getConsultationsForPet(widget.pet.petId),
-      _medicalService.getTreatmentsForPet(widget.pet.petId),
-      _medicalService.getVaccinationsForPet(widget.pet.petId),
-      _medicalService.getPrescriptionsForPet(widget.pet.petId),
-    ]);
+  Future<void> _loadAllData() async {
+    setState(() => _isLoading = true);
+    try {
+      final petId = _pet.petId;
 
-    final consultations = results[0] as List<ConsultationModel>;
-    final treatments = results[1] as List<TreatmentModel>;
-    final vaccinations = results[2] as List<VaccinationModel>;
-    final prescriptions = results[3] as List<PrescriptionModel>;
+      // Load owner and all medical records in parallel
+      final results = await Future.wait([
+        widget.firestoreService.getOwnerById(_pet.ownerId),
+        widget.medicalFirestoreService.getConsultationsForPet(petId),
+        widget.medicalFirestoreService.getTreatmentsForPet(petId),
+        widget.medicalFirestoreService.getVaccinationsForPet(petId),
+        widget.medicalFirestoreService.getPrescriptionsForPet(petId),
+        widget.medicalFirestoreService.getUpcomingFollowUpsForPet(petId),
+        widget.medicalFirestoreService.getDocumentsForPet(petId),
+      ]);
 
-    consultations.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    treatments.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    vaccinations.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    prescriptions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      if (!mounted) return;
 
-    return _PetProfileData(
-      consultations: consultations,
-      treatments: treatments,
-      vaccinations: vaccinations,
-      prescriptions: prescriptions,
-    );
+      final consultations = results[1] as List<ConsultationModel>;
+      final treatments = results[2] as List<TreatmentModel>;
+      final vaccinations = results[3] as List<VaccinationModel>;
+      final prescriptions = results[4] as List<PrescriptionModel>;
+      final followUps = results[5] as List<FollowUpModel>;
+
+      // Sort by date (newest first)
+      consultations.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      treatments.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      vaccinations.sort((a, b) => b.dateGiven.compareTo(a.dateGiven));
+      prescriptions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      setState(() {
+        _owner = results[0] as OwnerModel?;
+        _consultationCount = consultations.length;
+        _treatmentCount = treatments.length;
+        _vaccinationCount = vaccinations.length;
+        _prescriptionCount = prescriptions.length;
+        _followUpCount = followUps.length;
+        _documentCount = (results[6] as List).length;
+
+        // Keep only 3 most recent for quick view
+        _recentConsultations = consultations.take(3).toList();
+        _recentTreatments = treatments.take(3).toList();
+        _recentVaccinations = vaccinations.take(3).toList();
+        _recentPrescriptions = prescriptions.take(3).toList();
+        _pendingFollowUps = followUps.take(3).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
-  Future<void> _refresh() async {
-    setState(() {
-      _profileFuture = _loadProfileData();
-    });
-    await _profileFuture;
-  }
-
-  Future<void> _openForm(Widget screen) async {
-    await Navigator.push(
+  Future<void> _editPet() async {
+    final result = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => screen),
+      MaterialPageRoute(
+        builder: (_) => PetRegistrationScreen(
+          firestoreService: widget.firestoreService,
+          existingPet: _pet,
+        ),
+      ),
     );
-    if (mounted) _refresh();
+    if (result == true) {
+      // Refresh pet data after edit
+      final pets = await widget.firestoreService.getPets();
+      final updated = pets.firstWhere(
+        (p) => p.id == _pet.id,
+        orElse: () => _pet,
+      );
+      setState(() => _pet = updated);
+      _loadAllData();
+    }
   }
 
-  String _date(DateTime value) => DateFormat.yMMMd().format(value);
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
+  }
 
-  Widget _meta(String vetId, String branchId, DateTime createdAt) {
-    return Text(
-      'Vet: $vetId • Branch: ${branchId.isEmpty ? 'Unassigned' : branchId} • ${_date(createdAt)}',
-      style: Theme.of(context).textTheme.bodySmall,
-    );
+  IconData _getPetIcon(String species) {
+    switch (species.toLowerCase()) {
+      case 'dog':
+        return Icons.pets;
+      case 'cat':
+        return Icons.pets;
+      case 'bird':
+        return Icons.flutter_dash;
+      case 'fish':
+        return Icons.water;
+      default:
+        return Icons.pets;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final pet = widget.pet;
+    final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text('${pet.name} (${pet.petId})')),
-      body: FutureBuilder<_PetProfileData>(
-        future: _profileFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(
-              child: FilledButton.icon(
-                onPressed: _refresh,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Retry loading profile'),
-              ),
-            );
-          }
-
-          final data = snapshot.data!;
-          return RefreshIndicator(
-            onRefresh: _refresh,
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.pets),
-                    title: Text('${pet.species} • ${pet.breed}'),
-                    subtitle: Text(
-                      'Gender: ${pet.gender}\nDOB/Age: ${pet.dobAge}\nWeight: ${pet.weight} kg\nColor: ${pet.color}\nOwner ID: ${pet.ownerId}',
-                    ),
-                    isThreeLine: true,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+      appBar: AppBar(
+        title: Text(_pet.name),
+        actions: [
+          IconButton(
+            tooltip: 'Edit Pet',
+            onPressed: _editPet,
+            icon: const Icon(Icons.edit),
+          ),
+        ],
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadAllData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    OutlinedButton.icon(
-                      onPressed: () => _openForm(
-                        ConsultationFormScreen(petId: pet.petId),
-                      ),
-                      icon: const Icon(Icons.medical_services_outlined),
-                      label: const Text('Consultation'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => _openForm(
-                        TreatmentFormScreen(petId: pet.petId),
-                      ),
-                      icon: const Icon(Icons.medication_outlined),
-                      label: const Text('Treatment'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => _openForm(
-                        VaccinationFormScreen(petId: pet.petId),
-                      ),
-                      icon: const Icon(Icons.vaccines_outlined),
-                      label: const Text('Vaccination'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => _openForm(
-                        PrescriptionFormScreen(petId: pet.petId),
-                      ),
-                      icon: const Icon(Icons.receipt_long_outlined),
-                      label: const Text('Prescription'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => DocumentsScreen(petId: pet.petId),
+                    // ── Pet Info Card ──
+                    _buildPetInfoCard(theme),
+                    const SizedBox(height: 16),
+
+                    // ── Owner Info Card ──
+                    _buildOwnerInfoCard(theme),
+                    const SizedBox(height: 24),
+
+                    // ── Medical Summary ──
+                    _buildMedicalSummary(theme),
+                    const SizedBox(height: 24),
+
+                    // ── Recent Vaccinations ──
+                    if (_recentVaccinations.isNotEmpty) ...[
+                      _buildSectionHeader(
+                          theme, 'Vaccinations', Icons.vaccines,
+                          count: _vaccinationCount),
+                      ..._recentVaccinations.map((v) => _buildRecordTile(
+                            title: v.vaccineName,
+                            subtitle:
+                                'Dosage: ${v.dosage} • Next due: ${_formatDate(v.nextDueDate)}',
+                            date: _formatDate(v.dateGiven),
+                            icon: Icons.vaccines,
+                            color: Colors.green,
+                          )),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // ── Recent Consultations ──
+                    if (_recentConsultations.isNotEmpty) ...[
+                      _buildSectionHeader(
+                          theme, 'Consultations', Icons.medical_services,
+                          count: _consultationCount),
+                      ..._recentConsultations.map((c) => _buildRecordTile(
+                            title: c.diagnosis,
+                            subtitle:
+                                'Symptoms: ${c.symptoms}\nTreatment: ${c.treatmentGiven}',
+                            date: _formatDate(c.createdAt),
+                            icon: Icons.medical_services,
+                            color: Colors.blue,
+                          )),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // ── Recent Treatments ──
+                    if (_recentTreatments.isNotEmpty) ...[
+                      _buildSectionHeader(
+                          theme, 'Treatments', Icons.healing,
+                          count: _treatmentCount),
+                      ..._recentTreatments.map((t) => _buildRecordTile(
+                            title: t.treatment,
+                            subtitle:
+                                'Diagnosis: ${t.diagnosis}\nMedicine: ${t.medicine} (${t.dosage})',
+                            date: _formatDate(t.createdAt),
+                            icon: Icons.healing,
+                            color: Colors.orange,
+                          )),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // ── Recent Prescriptions ──
+                    if (_recentPrescriptions.isNotEmpty) ...[
+                      _buildSectionHeader(
+                          theme, 'Prescriptions', Icons.receipt_long,
+                          count: _prescriptionCount),
+                      ..._recentPrescriptions.map((p) => _buildRecordTile(
+                            title: p.medicine,
+                            subtitle:
+                                'Dosage: ${p.dosage} • ${p.frequency}\nDuration: ${p.duration}',
+                            date: _formatDate(p.createdAt),
+                            icon: Icons.receipt_long,
+                            color: Colors.purple,
+                          )),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // ── Pending Follow-ups ──
+                    if (_pendingFollowUps.isNotEmpty) ...[
+                      _buildSectionHeader(
+                          theme, 'Pending Follow-ups', Icons.event,
+                          count: _followUpCount),
+                      ..._pendingFollowUps.map((f) => _buildRecordTile(
+                            title: 'Follow-up (${f.relatedRecordType})',
+                            subtitle: f.notes,
+                            date: _formatDate(f.followUpDate),
+                            icon: Icons.event,
+                            color: Colors.teal,
+                          )),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // ── Empty state if no records ──
+                    if (_consultationCount == 0 &&
+                        _treatmentCount == 0 &&
+                        _vaccinationCount == 0 &&
+                        _prescriptionCount == 0 &&
+                        _followUpCount == 0 &&
+                        _documentCount == 0)
+                      Card(
+                        color: theme.colorScheme.surfaceContainerHighest
+                            .withValues(alpha: 0.3),
+                        child: const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Center(
+                            child: Column(
+                              children: [
+                                Icon(Icons.medical_information,
+                                    size: 48, color: Colors.grey),
+                                SizedBox(height: 8),
+                                Text(
+                                  'No medical records yet.',
+                                  style: TextStyle(
+                                      color: Colors.grey, fontSize: 14),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
-                      icon: const Icon(Icons.folder_open_outlined),
-                      label: const Text('Documents'),
-                    ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                PetProfileSectionCard(
-                  title: 'Consultations',
-                  icon: Icons.medical_services_outlined,
-                  count: data.consultations.length,
-                  emptyMessage: 'No consultations yet.',
-                  items: data.consultations
-                      .map(
-                        (record) => ListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(record.diagnosis),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(record.symptoms),
-                              _meta(record.vetId, record.branchId, record.createdAt),
-                            ],
-                          ),
-                        ),
-                      )
-                      .toList(),
-                ),
-                PetProfileSectionCard(
-                  title: 'Treatments',
-                  icon: Icons.healing_outlined,
-                  count: data.treatments.length,
-                  emptyMessage: 'No treatments yet.',
-                  items: data.treatments
-                      .map(
-                        (record) => ListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(record.treatment),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('${record.medicine} • ${record.dosage}'),
-                              _meta(record.vetId, record.branchId, record.createdAt),
-                            ],
-                          ),
-                        ),
-                      )
-                      .toList(),
-                ),
-                PetProfileSectionCard(
-                  title: 'Vaccinations',
-                  icon: Icons.vaccines_outlined,
-                  count: data.vaccinations.length,
-                  emptyMessage: 'No vaccinations yet.',
-                  items: data.vaccinations
-                      .map(
-                        (record) => ListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(record.vaccineName),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Dose: ${record.dosage} • Next due: ${_date(record.nextDueDate)}'),
-                              _meta(record.vetId, record.branchId, record.createdAt),
-                            ],
-                          ),
-                        ),
-                      )
-                      .toList(),
-                ),
-                PetProfileSectionCard(
-                  title: 'Prescription History',
-                  icon: Icons.receipt_long_outlined,
-                  count: data.prescriptions.length,
-                  emptyMessage: 'No prescription history available.',
-                  items: data.prescriptions
-                      .map(
-                        (record) => ListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          title: Text('Medicine: ${record.medicine}'),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Dosage: ${record.dosage}'),
-                              Text('Frequency: ${record.frequency}'),
-                              Text('Duration: ${record.duration}'),
-                              Text('Instructions: ${record.instructions}'),
-                              Text('Date: ${_date(record.createdAt)}'),
-                              Text('Veterinarian: ${record.vetId}'),
-                            ],
-                          ),
-                        ),
-                      )
-                      .toList(),
+              ),
+            ),
+    );
+  }
+
+  // ── Pet Info Card ──
+  Widget _buildPetInfoCard(ThemeData theme) {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            // Profile image placeholder with species icon
+            CircleAvatar(
+              radius: 40,
+              backgroundColor: theme.colorScheme.primaryContainer,
+              child: Icon(
+                _getPetIcon(_pet.species),
+                size: 40,
+                color: theme.colorScheme.onPrimaryContainer,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _pet.name,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _pet.petId,
+              style: TextStyle(
+                color: Colors.grey.shade500,
+                fontSize: 13,
+              ),
+            ),
+            const Divider(height: 32),
+
+            // Pet details in rows
+            _InfoRow(icon: Icons.category, label: 'Species', value: _pet.species),
+            const SizedBox(height: 10),
+            _InfoRow(icon: Icons.pets_outlined, label: 'Breed', value: _pet.breed),
+            const SizedBox(height: 10),
+            _InfoRow(icon: Icons.wc, label: 'Gender', value: _pet.gender),
+            const SizedBox(height: 10),
+            _InfoRow(icon: Icons.cake, label: 'DOB / Age', value: _pet.dobAge),
+            const SizedBox(height: 10),
+            _InfoRow(
+                icon: Icons.monitor_weight,
+                label: 'Weight',
+                value: '${_pet.weight} kg'),
+            const SizedBox(height: 10),
+            _InfoRow(
+                icon: Icons.color_lens, label: 'Color', value: _pet.color),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Owner Info Card ──
+  Widget _buildOwnerInfoCard(ThemeData theme) {
+    if (_owner == null) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(Icons.person_off, color: Colors.grey.shade400),
+              const SizedBox(width: 12),
+              const Text('Owner information not available',
+                  style: TextStyle(color: Colors.grey)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Card(
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.person, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Owner',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
-          );
-        },
+            const Divider(height: 20),
+            _InfoRow(icon: Icons.person, label: 'Name', value: _owner!.name),
+            const SizedBox(height: 8),
+            _InfoRow(icon: Icons.phone, label: 'Phone', value: _owner!.phone),
+            const SizedBox(height: 8),
+            _InfoRow(icon: Icons.email, label: 'Email', value: _owner!.email),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Medical Summary Grid ──
+  Widget _buildMedicalSummary(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Medical Summary',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        GridView.count(
+          crossAxisCount: 3,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          childAspectRatio: 1.2,
+          children: [
+            _SummaryTile(
+                icon: Icons.vaccines,
+                label: 'Vaccinations',
+                count: _vaccinationCount,
+                color: Colors.green),
+            _SummaryTile(
+                icon: Icons.medical_services,
+                label: 'Consultations',
+                count: _consultationCount,
+                color: Colors.blue),
+            _SummaryTile(
+                icon: Icons.healing,
+                label: 'Treatments',
+                count: _treatmentCount,
+                color: Colors.orange),
+            _SummaryTile(
+                icon: Icons.receipt_long,
+                label: 'Prescriptions',
+                count: _prescriptionCount,
+                color: Colors.purple),
+            _SummaryTile(
+                icon: Icons.folder,
+                label: 'Documents',
+                count: _documentCount,
+                color: Colors.brown),
+            _SummaryTile(
+                icon: Icons.event,
+                label: 'Follow-ups',
+                count: _followUpCount,
+                color: Colors.teal),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ── Section Header ──
+  Widget _buildSectionHeader(ThemeData theme, String title, IconData icon,
+      {required int count}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(icon, color: theme.colorScheme.primary, size: 20),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Chip(
+            label: Text('$count'),
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Record Tile ──
+  Widget _buildRecordTile({
+    required String title,
+    required String subtitle,
+    required String date,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: color.withValues(alpha: 0.15),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text(subtitle),
+        trailing: Text(
+          date,
+          style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+        ),
+        isThreeLine: subtitle.contains('\n'),
       ),
     );
   }
 }
 
-class _PetProfileData {
-  final List<ConsultationModel> consultations;
-  final List<TreatmentModel> treatments;
-  final List<VaccinationModel> vaccinations;
-  final List<PrescriptionModel> prescriptions;
+// ── Reusable info row widget ──
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
 
-  const _PetProfileData({
-    required this.consultations,
-    required this.treatments,
-    required this.vaccinations,
-    required this.prescriptions,
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
   });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: Colors.grey.shade600),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade500,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            Text(value, style: const TextStyle(fontSize: 15)),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// ── Summary tile for the medical grid ──
+class _SummaryTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int count;
+  final Color color;
+
+  const _SummaryTile({
+    required this.icon,
+    required this.label,
+    required this.count,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 4),
+            Text(
+              '$count',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: color,
+              ),
+            ),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 10),
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
