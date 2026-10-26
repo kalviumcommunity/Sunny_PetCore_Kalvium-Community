@@ -62,12 +62,18 @@ class _VaccinationFormScreenState extends State<VaccinationFormScreen> {
         _isLoadingProfile = false;
         if (vet == null) _profileError = 'Staff profile not found';
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
         _isLoadingProfile = false;
-        _profileError = 'Could not load staff profile';
+        _profileError = 'Could not load staff profile: $error';
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not load staff profile: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -89,7 +95,7 @@ class _VaccinationFormScreenState extends State<VaccinationFormScreen> {
       firstDate: firstDate,
       lastDate: lastDate,
     );
-    if (selectedDate == null) return;
+    if (!mounted || selectedDate == null) return;
     setState(() {
       if (isNextDueDate) {
         _nextDueDate = selectedDate;
@@ -110,7 +116,15 @@ class _VaccinationFormScreenState extends State<VaccinationFormScreen> {
     final label = isNextDueDate ? 'Next Due Date' : 'Date Given';
     return FormField<DateTime>(
       key: isNextDueDate ? _nextDueDateFieldKey : null,
-      validator: (value) => value == null ? 'Please select $label' : null,
+      validator: (value) {
+        if (value == null) return 'Please select $label';
+        if (isNextDueDate &&
+            _dateGiven != null &&
+            value.isBefore(DateUtils.dateOnly(_dateGiven!))) {
+          return 'Next due date must be on or after the date given';
+        }
+        return null;
+      },
       builder: (field) {
         final value = isNextDueDate ? _nextDueDate : _dateGiven;
         return InkWell(
@@ -131,7 +145,8 @@ class _VaccinationFormScreenState extends State<VaccinationFormScreen> {
   }
 
   Future<void> _saveVaccination() async {
-    if (!_formKey.currentState!.validate() ||
+    if (_isSaving ||
+        !_formKey.currentState!.validate() ||
         _vet == null ||
         _dateGiven == null ||
         _nextDueDate == null) {
@@ -190,7 +205,13 @@ class _VaccinationFormScreenState extends State<VaccinationFormScreen> {
             children: [
               Card(
                 child: ListTile(
-                  leading: const Icon(Icons.badge_outlined),
+                  leading: _isLoadingProfile
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.badge_outlined),
                   title: Text(
                     _isLoadingProfile
                         ? 'Loading staff profile...'

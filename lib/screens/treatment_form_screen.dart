@@ -69,12 +69,18 @@ class _TreatmentFormScreenState extends State<TreatmentFormScreen> {
         _isLoadingProfile = false;
         if (vet == null) _profileError = 'Staff profile not found';
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
         _isLoadingProfile = false;
-        _profileError = 'Could not load staff profile';
+        _profileError = 'Could not load staff profile: $error';
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not load staff profile: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -90,11 +96,14 @@ class _TreatmentFormScreenState extends State<TreatmentFormScreen> {
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 3650)),
     );
-    if (selectedDate != null) setState(() => _followUpDate = selectedDate);
+    if (!mounted || selectedDate == null) return;
+    setState(() => _followUpDate = selectedDate);
   }
 
   Future<void> _saveTreatment() async {
-    if (!_formKey.currentState!.validate() || _vet == null) return;
+    if (_isSaving || !_formKey.currentState!.validate() || _vet == null) {
+      return;
+    }
 
     setState(() => _isSaving = true);
     try {
@@ -154,7 +163,13 @@ class _TreatmentFormScreenState extends State<TreatmentFormScreen> {
             children: [
               Card(
                 child: ListTile(
-                  leading: const Icon(Icons.badge_outlined),
+                  leading: _isLoadingProfile
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.badge_outlined),
                   title: Text(
                     _isLoadingProfile
                         ? 'Loading staff profile...'

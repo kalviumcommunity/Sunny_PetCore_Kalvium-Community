@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../services/medical_firestore_service.dart';
-import '../utils/seed_test_data.dart';
 import 'consultation_form_screen.dart';
 import 'treatment_form_screen.dart';
 
@@ -19,16 +18,30 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen> {
   final _medicalService = MedicalFirestoreService();
   late Future<List<Map<String, dynamic>>> _historyFuture;
   String _selectedType = 'all';
-  bool _isSeedingTestData = false;
 
   @override
   void initState() {
     super.initState();
-    _loadHistory();
+    _historyFuture = _loadHistory();
   }
 
-  void _loadHistory() {
-    _historyFuture = _medicalService.getMedicalHistoryForPet(widget.petId);
+  Future<List<Map<String, dynamic>>> _loadHistory() async {
+    try {
+      return await _medicalService.getMedicalHistoryForPet(widget.petId);
+    } catch (error) {
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not load medical history: $error'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        });
+      }
+      rethrow;
+    }
   }
 
   DateTime _recordDate(dynamic value) {
@@ -78,7 +91,9 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen> {
         builder: (_) => ConsultationFormScreen(petId: widget.petId),
       ),
     ).then((_) {
-      if (mounted) setState(_loadHistory);
+      if (mounted) {
+        setState(() => _historyFuture = _loadHistory());
+      }
     });
   }
 
@@ -89,27 +104,10 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen> {
         builder: (_) => TreatmentFormScreen(petId: widget.petId),
       ),
     ).then((_) {
-      if (mounted) setState(_loadHistory);
+      if (mounted) {
+        setState(() => _historyFuture = _loadHistory());
+      }
     });
-  }
-
-  Future<void> _seedCrossBranchTestData() async {
-    setState(() => _isSeedingTestData = true);
-    try {
-      await seedCrossBranchTestData();
-      if (!mounted) return;
-      setState(_loadHistory);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cross-branch test data added.')),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not seed test data: $error')),
-      );
-    } finally {
-      if (mounted) setState(() => _isSeedingTestData = false);
-    }
   }
 
   @override
@@ -125,15 +123,6 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Medical History'),
-        actions: [
-          if (widget.petId == 'PET-001')
-            IconButton(
-              onPressed:
-                  _isSeedingTestData ? null : _seedCrossBranchTestData,
-              tooltip: 'Seed cross-branch test data',
-              icon: const Icon(Icons.science_outlined),
-            ),
-        ],
       ),
       body: Column(
         children: [
@@ -164,10 +153,24 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen> {
                 }
                 if (snapshot.hasError) {
                   return Center(
-                    child: FilledButton.icon(
-                      onPressed: () => setState(_loadHistory),
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Retry loading history'),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Could not load medical history: ${snapshot.error}',
+                          ),
+                          const SizedBox(height: 12),
+                          FilledButton.icon(
+                            onPressed: () => setState(
+                              () => _historyFuture = _loadHistory(),
+                            ),
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Retry loading history'),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 }
@@ -180,7 +183,10 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.medical_information_outlined, size: 48),
+                          const Icon(
+                            Icons.medical_information_outlined,
+                            size: 48,
+                          ),
                           const SizedBox(height: 12),
                           Text(
                             'No medical history yet',
@@ -206,7 +212,9 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen> {
 
                 if (visibleRecords.isEmpty) {
                   return Center(
-                    child: Text('No ${filters[_selectedType]!.toLowerCase()} yet'),
+                    child: Text(
+                      'No ${filters[_selectedType]!.toLowerCase()} yet',
+                    ),
                   );
                 }
 

@@ -19,6 +19,7 @@ class _FollowUpsScreenState extends State<FollowUpsScreen> {
   final _medicalService = MedicalFirestoreService();
   final _firestoreService = FirestoreService();
   late Future<_FollowUpsData> _dataFuture;
+  String? _completingFollowUpId;
 
   @override
   void initState() {
@@ -27,14 +28,31 @@ class _FollowUpsScreenState extends State<FollowUpsScreen> {
   }
 
   Future<_FollowUpsData> _loadData() async {
-    final followUps = widget.petId == null
-        ? await _medicalService.getUpcomingFollowUps()
-        : await _medicalService.getUpcomingFollowUpsForPet(widget.petId!);
-    final pets = await _firestoreService.getPets();
-    return _FollowUpsData(followUps, pets);
+    try {
+      final followUps = widget.petId == null
+          ? await _medicalService.getUpcomingFollowUps()
+          : await _medicalService.getUpcomingFollowUpsForPet(widget.petId!);
+      final pets = await _firestoreService.getPets();
+      return _FollowUpsData(followUps, pets);
+    } catch (error) {
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not load follow-ups: $error'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        });
+      }
+      rethrow;
+    }
   }
 
   Future<void> _markCompleted(String followUpId) async {
+    if (_completingFollowUpId != null) return;
+    setState(() => _completingFollowUpId = followUpId);
     try {
       await _medicalService.markFollowUpCompleted(followUpId);
       if (!mounted) return;
@@ -47,6 +65,8 @@ class _FollowUpsScreenState extends State<FollowUpsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Could not update follow-up: $error')),
       );
+    } finally {
+      if (mounted) setState(() => _completingFollowUpId = null);
     }
   }
 
@@ -62,10 +82,21 @@ class _FollowUpsScreenState extends State<FollowUpsScreen> {
           }
           if (snapshot.hasError) {
             return Center(
-              child: FilledButton.icon(
-                onPressed: () => setState(() => _dataFuture = _loadData()),
-                icon: const Icon(Icons.refresh),
-                label: const Text('Retry loading follow-ups'),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Could not load follow-ups: ${snapshot.error}'),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: () =>
+                          setState(() => _dataFuture = _loadData()),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry loading follow-ups'),
+                    ),
+                  ],
+                ),
               ),
             );
           }
@@ -107,10 +138,17 @@ class _FollowUpsScreenState extends State<FollowUpsScreen> {
                   isThreeLine: followUp.notes.trim().isNotEmpty,
                   trailing: IconButton(
                     tooltip: 'Mark completed',
-                    onPressed: followUpId == null
+                    onPressed: followUpId == null ||
+                            _completingFollowUpId != null
                         ? null
                         : () => _markCompleted(followUpId),
-                    icon: const Icon(Icons.check_circle_outline),
+                    icon: _completingFollowUpId == followUpId
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.check_circle_outline),
                   ),
                 ),
               );

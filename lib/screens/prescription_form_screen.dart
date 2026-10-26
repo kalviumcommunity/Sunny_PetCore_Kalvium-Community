@@ -63,12 +63,18 @@ class _PrescriptionFormScreenState extends State<PrescriptionFormScreen> {
         _isLoadingProfile = false;
         if (vet == null) _profileError = 'Staff profile not found';
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
         _isLoadingProfile = false;
-        _profileError = 'Could not load staff profile';
+        _profileError = 'Could not load staff profile: $error';
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not load staff profile: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -78,7 +84,9 @@ class _PrescriptionFormScreenState extends State<PrescriptionFormScreen> {
   }
 
   Future<void> _savePrescription() async {
-    if (!_formKey.currentState!.validate() || _vet == null) return;
+    if (_isSaving || !_formKey.currentState!.validate() || _vet == null) {
+      return;
+    }
     setState(() => _isSaving = true);
     try {
       final prescription = PrescriptionModel(
@@ -132,7 +140,13 @@ class _PrescriptionFormScreenState extends State<PrescriptionFormScreen> {
             children: [
               Card(
                 child: ListTile(
-                  leading: const Icon(Icons.badge_outlined),
+                  leading: _isLoadingProfile
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.badge_outlined),
                   title: Text(
                     _isLoadingProfile
                         ? 'Loading staff profile...'

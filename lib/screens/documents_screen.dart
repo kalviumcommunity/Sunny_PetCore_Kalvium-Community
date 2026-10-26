@@ -17,6 +17,7 @@ class DocumentsScreen extends StatefulWidget {
 }
 
 class _DocumentsScreenState extends State<DocumentsScreen> {
+  static const _maxUploadBytes = 10 * 1024 * 1024;
   static const _documentTypes = [
     'Blood Report',
     'X-Ray',
@@ -33,13 +34,55 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   @override
   void initState() {
     super.initState();
-    _documentsFuture = _medicalService.getDocumentsForPet(widget.petId);
+    _documentsFuture = _loadDocuments();
+  }
+
+  Future<List<DocumentModel>> _loadDocuments() async {
+    try {
+      return await _medicalService.getDocumentsForPet(widget.petId);
+    } catch (error) {
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not load documents: $error'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        });
+      }
+      rethrow;
+    }
   }
 
   Future<void> _pickAndUploadDocument() async {
-    final result = await FilePicker.platform.pickFiles();
+    final FilePickerResult? result;
+    try {
+      result = await FilePicker.platform.pickFiles();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not select document: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
     if (result == null || result.files.isEmpty) return;
-    final path = result.files.single.path;
+    final selectedFile = result.files.single;
+    if (selectedFile.size > _maxUploadBytes) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('File is too large. Choose a file up to 10 MB.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    final path = selectedFile.path;
     if (path == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -62,15 +105,13 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
         },
       );
       if (!mounted) return;
-      setState(() {
-        _documentsFuture = _medicalService.getDocumentsForPet(widget.petId);
-      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Document uploaded successfully.'),
           backgroundColor: Colors.green,
         ),
       );
+      setState(() => _documentsFuture = _loadDocuments());
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -129,13 +170,22 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                 }
                 if (snapshot.hasError) {
                   return Center(
-                    child: FilledButton.icon(
-                      onPressed: () => setState(() {
-                        _documentsFuture =
-                            _medicalService.getDocumentsForPet(widget.petId);
-                      }),
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Retry loading documents'),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('Could not load documents: ${snapshot.error}'),
+                          const SizedBox(height: 12),
+                          FilledButton.icon(
+                            onPressed: () => setState(
+                              () => _documentsFuture = _loadDocuments(),
+                            ),
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Retry loading documents'),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 }
