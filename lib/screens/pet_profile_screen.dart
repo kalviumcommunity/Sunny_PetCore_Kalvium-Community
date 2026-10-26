@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/consultation_model.dart';
+import '../models/document_model.dart';
 import '../models/followup_model.dart';
 import '../models/owner_model.dart';
 import '../models/pet_model.dart';
@@ -58,6 +60,7 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
   List<PrescriptionModel> _recentPrescriptions = [];
   List<ConsultationModel> _recentConsultations = [];
   List<FollowUpModel> _pendingFollowUps = [];
+  List<DocumentModel> _documents = [];
 
   @override
   void initState() {
@@ -92,6 +95,7 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
       final vaccinations = results[3] as List<VaccinationModel>;
       final prescriptions = results[4] as List<PrescriptionModel>;
       final followUps = results[5] as List<FollowUpModel>;
+      final documents = results[6] as List<DocumentModel>;
 
       // Sort by date (newest first)
       consultations.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -106,7 +110,7 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
         _vaccinationCount = vaccinations.length;
         _prescriptionCount = prescriptions.length;
         _followUpCount = followUps.length;
-        _documentCount = (results[6] as List).length;
+        _documentCount = documents.length;
 
         // Keep only 3 most recent for quick view
         _recentConsultations = consultations.take(3).toList();
@@ -114,6 +118,7 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
         _recentVaccinations = vaccinations.take(3).toList();
         _recentPrescriptions = prescriptions.take(3).toList();
         _pendingFollowUps = followUps.take(3).toList();
+        _documents = documents;
         _isLoading = false;
       });
     } catch (e) {
@@ -159,6 +164,33 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
         return Icons.water;
       default:
         return Icons.pets;
+    }
+  }
+
+  Future<void> _openDocument(DocumentModel document) async {
+    final url = document.fileUrl.trim();
+    if (url.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No document URL is available.')),
+      );
+      return;
+    }
+
+    final uri = Uri.tryParse(url);
+    if (uri == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open this document.')),
+      );
+      return;
+    }
+
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open this document.')),
+      );
     }
   }
 
@@ -318,6 +350,39 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                           )),
                       const SizedBox(height: 16),
                     ],
+
+                    // ── Medical Documents Card ──
+                    PetProfileSectionCard(
+                      key: const ValueKey('pet-profile-documents-card'),
+                      title: 'Medical Documents',
+                      icon: Icons.folder,
+                      count: _documentCount,
+                      emptyMessage: 'No medical documents available.',
+                      items: _documents.isEmpty
+                          ? const []
+                          : _documents.map((document) {
+                              final label = document.documentType.isEmpty
+                                  ? 'Document'
+                                  : document.documentType;
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: const Icon(Icons.description_outlined),
+                                  title: Text(document.fileName),
+                                  subtitle: Text(
+                                    '$label • ${DateFormat.yMMMd().format(document.uploadDate)}',
+                                  ),
+                                  trailing: IconButton(
+                                    tooltip: 'View document',
+                                    onPressed: () => _openDocument(document),
+                                    icon: const Icon(Icons.open_in_new),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                    ),
+                    const SizedBox(height: 16),
 
                     // ── Empty state if no records ──
                     if (_consultationCount == 0 &&
