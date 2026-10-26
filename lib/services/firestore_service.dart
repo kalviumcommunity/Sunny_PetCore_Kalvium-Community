@@ -21,7 +21,8 @@ class FirestoreService {
 
   // Add a new owner record into the 'owners' collection
   Future<String> addOwner(OwnerModel owner) async {
-    final docRef = await ownersCollection.add(owner.toMap());
+    final ownerWithTimestamp = owner.copyWith(createdAt: DateTime.now());
+    final docRef = await ownersCollection.add(ownerWithTimestamp.toMap());
     return docRef.id;
   }
 
@@ -32,6 +33,74 @@ class FirestoreService {
       return OwnerModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
     }).toList();
   }
+
+  // Read only active owners (filters out disabled/soft-deleted owners)
+  Future<List<OwnerModel>> getActiveOwners() async {
+    final snapshot =
+        await ownersCollection.where('isActive', isEqualTo: true).get();
+    return snapshot.docs.map((doc) {
+      return OwnerModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+    }).toList();
+  }
+
+  // Get a single owner by document ID
+  Future<OwnerModel?> getOwnerById(String ownerId) async {
+    final doc = await ownersCollection.doc(ownerId).get();
+    if (!doc.exists || doc.data() == null) return null;
+    return OwnerModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+  }
+
+  // Update an existing owner record
+  Future<void> updateOwner(OwnerModel owner) async {
+    if (owner.id == null) throw ArgumentError('Owner ID cannot be null');
+    await ownersCollection.doc(owner.id).update(owner.toMap());
+  }
+
+  // Hard delete an owner record from Firestore
+  Future<void> deleteOwner(String ownerId) async {
+    await ownersCollection.doc(ownerId).delete();
+  }
+
+  // Soft-delete (disable) an owner by setting isActive to false
+  Future<void> disableOwner(String ownerId) async {
+    await ownersCollection.doc(ownerId).update({'isActive': false});
+  }
+
+  // Re-enable a disabled owner
+  Future<void> enableOwner(String ownerId) async {
+    await ownersCollection.doc(ownerId).update({'isActive': true});
+  }
+
+  // ──────────────────────────────────────────────
+  //  DUPLICATE / VALIDATION CHECKS
+  // ──────────────────────────────────────────────
+
+  // Check if an owner with the given email already exists (exclude a specific ID for edits)
+  Future<bool> isEmailDuplicate(String email, {String? excludeId}) async {
+    final snapshot = await ownersCollection
+        .where('email', isEqualTo: email.trim().toLowerCase())
+        .get();
+    if (snapshot.docs.isEmpty) return false;
+    if (excludeId != null) {
+      return snapshot.docs.any((doc) => doc.id != excludeId);
+    }
+    return true;
+  }
+
+  // Check if an owner with the given phone already exists (exclude a specific ID for edits)
+  Future<bool> isPhoneDuplicate(String phone, {String? excludeId}) async {
+    final snapshot =
+        await ownersCollection.where('phone', isEqualTo: phone.trim()).get();
+    if (snapshot.docs.isEmpty) return false;
+    if (excludeId != null) {
+      return snapshot.docs.any((doc) => doc.id != excludeId);
+    }
+    return true;
+  }
+
+  // ──────────────────────────────────────────────
+  //  PET CRUD Operations
+  // ──────────────────────────────────────────────
 
   // Add a new pet record into the 'pets' collection
   Future<String> addPet(PetModel pet) async {
@@ -47,16 +116,74 @@ class FirestoreService {
     }).toList();
   }
 
-  Future<List<PetModel>> searchPets(String query) async {
-    final normalizedQuery = query.trim().toLowerCase();
-    if (normalizedQuery.isEmpty) return [];
+  // Get all pets belonging to a specific owner
+  Future<List<PetModel>> getPetsByOwner(String ownerId) async {
+    final snapshot =
+        await petsCollection.where('ownerId', isEqualTo: ownerId).get();
+    return snapshot.docs.map((doc) {
+      return PetModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+    }).toList();
+  }
 
+  bool _looksLikePhoneQuery(String query) {
+    final digits = query.replaceAll(RegExp(r'\D'), '');
+    return digits.length >= 4;
+  }
+
+  String _normalizePhone(String value) {
+    return value.replaceAll(RegExp(r'\D'), '').toLowerCase();
+  }
+
+  // Generate the next unique Pet ID (PET-001, PET-002, ...)
+  Future<String> getNextPetId() async {
+    final snapshot = await petsCollection.get();
+    int maxNumber = 0;
+    for (final doc in snapshot.docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      final petId = data['petId'] as String? ?? '';
+      if (petId.startsWith('PET-')) {
+        final number = int.tryParse(petId.substring(4)) ?? 0;
+        if (number > maxNumber) maxNumber = number;
+      }
+    }
+    return 'PET-${(maxNumber + 1).toString().padLeft(3, '0')}';
+  }
+
+  Future<List<PetModel>> searchPets(String query) async {
+    final trimmedQuery = query.trim();
+    if (trimmedQuery.isEmpty) return [];
+
+    if (_looksLikePhoneQuery(trimmedQuery)) {
+      final normalizedPhoneQuery = _normalizePhone(trimmedQuery);
+
+      final owners = await getOwners();
+      final ownerIds = owners
+          .where(
+            (owner) => _normalizePhone(owner.phone).contains(normalizedPhoneQuery),
+          )
+          .map((owner) => owner.id)
+          .whereType<String>()
+          .toSet();
+
+      if (ownerIds.isEmpty) return [];
+
+      final pets = await getPets();
+      return pets.where((pet) => ownerIds.contains(pet.ownerId)).toList();
+    }
+
+    final normalizedQuery = trimmedQuery.toLowerCase();
     final pets = await getPets();
     return pets.where((pet) {
       return pet.petId.toLowerCase().contains(normalizedQuery) ||
           pet.name.toLowerCase().contains(normalizedQuery) ||
           pet.species.toLowerCase().contains(normalizedQuery);
     }).toList();
+  }
+
+  // Update an existing pet record
+  Future<void> updatePet(PetModel pet) async {
+    if (pet.id == null) throw ArgumentError('Pet ID cannot be null');
+    await petsCollection.doc(pet.id).update(pet.toMap());
   }
 
   Future<String> addClinicalRecord(ClinicalRecord record) async {

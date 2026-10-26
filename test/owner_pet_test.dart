@@ -1,4 +1,5 @@
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:petcore/models/branch_model.dart';
 import 'package:petcore/models/clinical_record_model.dart';
@@ -248,5 +249,110 @@ void main() {
     expect((await firestoreService.searchPets('PET-100')).single.name, 'Luna');
     expect((await firestoreService.getClinicalRecords()).single.title,
         'Annual check-up');
+  });
+
+  test('Pet search supports owner phone and returns multiple pets', () async {
+    final ownerId = await firestoreService.addOwner(
+      OwnerModel(
+        name: 'Riya Patel',
+        phone: '+91 98765-43210',
+        email: 'riya@example.com',
+        address: 'Bandra, Mumbai',
+      ),
+    );
+
+    await firestoreService.addPet(
+      PetModel(
+        petId: 'PET-301',
+        name: 'Buddy',
+        species: 'Dog',
+        breed: 'Indie',
+        gender: 'Male',
+        dobAge: '3 years',
+        weight: 16.3,
+        color: 'Brown',
+        ownerId: ownerId,
+      ),
+    );
+    await firestoreService.addPet(
+      PetModel(
+        petId: 'PET-302',
+        name: 'Mimi',
+        species: 'Cat',
+        breed: 'Persian',
+        gender: 'Female',
+        dobAge: '2 years',
+        weight: 3.9,
+        color: 'White',
+        ownerId: ownerId,
+      ),
+    );
+
+    final results = await firestoreService.searchPets('9876543210');
+    expect(results.length, 2);
+    expect(results.map((pet) => pet.petId).toSet(), {'PET-301', 'PET-302'});
+  });
+
+  test('Security logic restricts owner and pet access and keeps search scoped', () async {
+    final ownerOneId = await firestoreService.addOwner(
+      OwnerModel(
+        name: 'Asha Mehta',
+        phone: '+91 98765-43210',
+        email: 'asha@example.com',
+        address: 'Powai, Mumbai',
+      ),
+    );
+
+    final ownerTwoId = await firestoreService.addOwner(
+      OwnerModel(
+        name: 'Nikhil Shah',
+        phone: '+91 90000-00000',
+        email: 'nikhil@example.com',
+        address: 'Bandra, Mumbai',
+      ),
+    );
+
+    await firestoreService.addPet(
+      PetModel(
+        petId: 'PET-401',
+        name: 'Milo',
+        species: 'Dog',
+        breed: 'Beagle',
+        gender: 'Male',
+        dobAge: '3 years',
+        weight: 12.5,
+        color: 'Brown',
+        ownerId: ownerOneId,
+      ),
+    );
+
+    await firestoreService.addPet(
+      PetModel(
+        petId: 'PET-402',
+        name: 'Luna',
+        species: 'Cat',
+        breed: 'Persian',
+        gender: 'Female',
+        dobAge: '2 years',
+        weight: 3.8,
+        color: 'White',
+        ownerId: ownerTwoId,
+      ),
+    );
+
+    expect(RolePermissions.canAccessOwners(UserRole.admin), isTrue);
+    expect(RolePermissions.canAccessOwners(UserRole.clinicStaff), isTrue);
+    expect(RolePermissions.canAccessOwners(UserRole.veterinarian), isFalse);
+
+    expect(RolePermissions.canAccessPets(UserRole.admin), isTrue);
+    expect(RolePermissions.canAccessPets(UserRole.veterinarian), isTrue);
+    expect(RolePermissions.canAccessPets(UserRole.unknown), isFalse);
+
+    final phoneResults = await firestoreService.searchPets('9876543210');
+    expect(phoneResults.length, 1);
+    expect(phoneResults.single.petId, 'PET-401');
+    expect(phoneResults.single.name, 'Milo');
+
+    expect((await firestoreService.searchPets('')).isEmpty, isTrue);
   });
 }
