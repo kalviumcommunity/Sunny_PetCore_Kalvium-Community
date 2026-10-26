@@ -173,7 +173,7 @@ class MedicalFirestoreService {
     }
 
     final uploadTask = _storage
-        .ref('documents/$petId/$safeFileName')
+      .ref('documents/$branchId/$petId/$safeFileName')
         .putData(fileBytes);
     final progressSubscription = uploadTask.snapshotEvents.listen((snapshot) {
       if (snapshot.totalBytes > 0) {
@@ -210,9 +210,16 @@ class MedicalFirestoreService {
     );
   }
 
-  Future<List<DocumentModel>> getDocumentsForPet(String petId) async {
-    final snapshot =
-        await documentsCollection.where('petId', isEqualTo: petId).get();
+  Future<List<DocumentModel>> getDocumentsForPet(
+    String petId, {
+    String? branchId,
+  }) async {
+    final query = branchId == null
+        ? documentsCollection.where('petId', isEqualTo: petId)
+        : documentsCollection
+            .where('petId', isEqualTo: petId)
+            .where('branchId', isEqualTo: branchId);
+    final snapshot = await query.get();
     final documents = snapshot.docs.map((doc) {
       return DocumentModel.fromMap(
         doc.data() as Map<String, dynamic>,

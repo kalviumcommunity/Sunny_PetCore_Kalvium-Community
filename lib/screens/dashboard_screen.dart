@@ -95,7 +95,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     int? petScreenIndex;
     if (RolePermissions.canAccessPets(role)) {
       petScreenIndex = screens.length;
-      screens.add(PetScreen(firestoreService: widget.firestoreService));
+      screens.add(PetScreen(
+        firestoreService: widget.firestoreService,
+        branchId: widget.userProfile.branchId,
+      ));
       destinations.add(const NavigationDestination(
         icon: Icon(Icons.pets),
         label: 'Pets',

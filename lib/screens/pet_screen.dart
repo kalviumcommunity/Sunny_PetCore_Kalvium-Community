@@ -8,8 +8,13 @@ import 'pet_registration_screen.dart';
 
 class PetScreen extends StatefulWidget {
   final FirestoreService firestoreService;
+  final String branchId;
 
-  const PetScreen({super.key, required this.firestoreService});
+  const PetScreen({
+    super.key,
+    required this.firestoreService,
+    required this.branchId,
+  });
 
   @override
   State<PetScreen> createState() => _PetScreenState();

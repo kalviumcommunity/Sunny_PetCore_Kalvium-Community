@@ -8,8 +8,13 @@ import '../widgets/petcore_ui.dart';
 
 class DocumentsScreen extends StatefulWidget {
   final String petId;
+  final String branchId;
 
-  const DocumentsScreen({super.key, required this.petId});
+  const DocumentsScreen({
+    super.key,
+    required this.petId,
+    required this.branchId,
+  });
 
   @override
   State<DocumentsScreen> createState() => _DocumentsScreenState();
@@ -32,7 +37,10 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   @override
   void initState() {
     super.initState();
-    _documentsFuture = _medicalService.getDocumentsForPet(widget.petId);
+    _documentsFuture = _medicalService.getDocumentsForPet(
+      widget.petId,
+      branchId: widget.branchId,
+    );
   }
 
   Future<void> _pickAndUploadDocument() async {
@@ -72,7 +80,10 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _documentsFuture = _medicalService.getDocumentsForPet(widget.petId);
+        _documentsFuture = _medicalService.getDocumentsForPet(
+          widget.petId,
+          branchId: widget.branchId,
+        );
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -140,8 +151,10 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                   return Center(
                     child: FilledButton.icon(
                       onPressed: () => setState(() {
-                        _documentsFuture =
-                            _medicalService.getDocumentsForPet(widget.petId);
+                        _documentsFuture = _medicalService.getDocumentsForPet(
+                          widget.petId,
+                          branchId: widget.branchId,
+                        );
                       }),
                       icon: const Icon(Icons.refresh),
                       label: const Text('Retry loading documents'),
@@ -180,7 +193,9 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _isUploading ? null : _pickAndUploadDocument,
+          onPressed: _isUploading || widget.branchId.trim().isEmpty
+            ? null
+            : _pickAndUploadDocument,
         icon: const Icon(Icons.upload_file),
         label: const Text('Upload document'),
       ),

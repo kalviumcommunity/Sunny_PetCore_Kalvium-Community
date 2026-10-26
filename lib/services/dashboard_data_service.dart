@@ -8,7 +8,9 @@ class DashboardDataService {
 
   Future<DashboardData> load({DateTime? now, String? branchId}) async {
     final currentTime = now ?? DateTime.now();
-    final allRecords = await firestoreService.getClinicalRecords();
+    final allRecords = branchId != null && branchId.trim().isEmpty
+        ? <ClinicalRecord>[]
+        : await firestoreService.getClinicalRecords(branchId: branchId);
     final records = branchId == null
       ? allRecords
       : allRecords.where((record) => record.branchId == branchId).toList();
