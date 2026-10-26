@@ -6,8 +6,13 @@ import 'documents_screen.dart';
 
 class PetScreen extends StatefulWidget {
   final FirestoreService firestoreService;
+  final String branchId;
 
-  const PetScreen({super.key, required this.firestoreService});
+  const PetScreen({
+    super.key,
+    required this.firestoreService,
+    required this.branchId,
+  });
 
   @override
   State<PetScreen> createState() => _PetScreenState();
@@ -131,7 +136,10 @@ class _PetScreenState extends State<PetScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => DocumentsScreen(petId: pet.petId),
+        builder: (_) => DocumentsScreen(
+          petId: pet.petId,
+          branchId: widget.branchId,
+        ),
       ),
     );
   }

@@ -1,0 +1,115 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return signedIn() && profile().role == 'ADMIN';
+    }
+
+    function hasAuthorizedRole() {
+      return signedIn() && profile().role in ['ADMIN', 'VETERINARIAN', 'CLINIC STAFF'];
+    }
+
+    function hasBranch() {
+      return hasAuthorizedRole() && profile().branchId is string && profile().branchId != '';
+    }
+
+    function sameBranch(branchId) {
+      return hasBranch() && profile().branchId == branchId;
+    }
+
+    match /users/{userId} {
+      allow read: if signedIn() && (isAdmin() || request.auth.uid == userId);
+      allow create: if signedIn() && request.auth.uid == userId;
+      allow update: if isAdmin() || (
+        signedIn() && request.auth.uid == userId &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'email'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /branches/{branchId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /owners/{ownerId} {
+      allow read, write: if hasAuthorizedRole();
+    }
+
+    match /pets/{petId} {
+      allow read, write: if hasAuthorizedRole();
+    }
+
+    match /clinical_records/{recordId} {
+      allow read: if isAdmin() || sameBranch(resource.data.branchId);
+      allow create: if isAdmin() || sameBranch(request.resource.data.branchId);
+      allow update: if isAdmin() || (
+        sameBranch(resource.data.branchId) &&
+        sameBranch(request.resource.data.branchId)
+      );
+      allow delete: if isAdmin() || sameBranch(resource.data.branchId);
+    }
+
+    match /consultations/{recordId} {
+      allow read, delete: if isAdmin() || sameBranch(resource.data.branchId);
+      allow create: if isAdmin() || sameBranch(request.resource.data.branchId);
+      allow update: if isAdmin() || (
+        sameBranch(resource.data.branchId) &&
+        sameBranch(request.resource.data.branchId)
+      );
+    }
+
+    match /treatments/{recordId} {
+      allow read, delete: if isAdmin() || sameBranch(resource.data.branchId);
+      allow create: if isAdmin() || sameBranch(request.resource.data.branchId);
+      allow update: if isAdmin() || (
+        sameBranch(resource.data.branchId) &&
+        sameBranch(request.resource.data.branchId)
+      );
+    }
+
+    match /vaccinations/{recordId} {
+      allow read, delete: if isAdmin() || sameBranch(resource.data.branchId);
+      allow create: if isAdmin() || sameBranch(request.resource.data.branchId);
+      allow update: if isAdmin() || (
+        sameBranch(resource.data.branchId) &&
+        sameBranch(request.resource.data.branchId)
+      );
+    }
+
+    match /prescriptions/{recordId} {
+      allow read, delete: if isAdmin() || sameBranch(resource.data.branchId);
+      allow create: if isAdmin() || sameBranch(request.resource.data.branchId);
+      allow update: if isAdmin() || (
+        sameBranch(resource.data.branchId) &&
+        sameBranch(request.resource.data.branchId)
+      );
+    }
+
+    match /followups/{recordId} {
+      allow read, delete: if isAdmin() || sameBranch(resource.data.branchId);
+      allow create: if isAdmin() || sameBranch(request.resource.data.branchId);
+      allow update: if isAdmin() || (
+        sameBranch(resource.data.branchId) &&
+        sameBranch(request.resource.data.branchId)
+      );
+    }
+
+    match /documents/{recordId} {
+      allow read, delete: if isAdmin() || sameBranch(resource.data.branchId);
+      allow create: if isAdmin() || sameBranch(request.resource.data.branchId);
+      allow update: if isAdmin() || (
+        sameBranch(resource.data.branchId) &&
+        sameBranch(request.resource.data.branchId)
+      );
+    }
+  }
+}

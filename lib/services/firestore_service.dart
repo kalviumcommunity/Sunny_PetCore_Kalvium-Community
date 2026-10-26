@@ -64,8 +64,11 @@ class FirestoreService {
     return docRef.id;
   }
 
-  Future<List<ClinicalRecord>> getClinicalRecords() async {
-    final snapshot = await clinicalRecordsCollection.get();
+  Future<List<ClinicalRecord>> getClinicalRecords({String? branchId}) async {
+    final query = branchId == null
+        ? clinicalRecordsCollection
+        : clinicalRecordsCollection.where('branchId', isEqualTo: branchId);
+    final snapshot = await query.get();
     final records = snapshot.docs.map((doc) {
       return ClinicalRecord.fromMap(
         doc.data() as Map<String, dynamic>,

@@ -45,3 +45,19 @@ Administrators can add, view, edit, and deactivate branches from the protected B
 ## Phase 6 Dashboard Foundation
 
 The dashboard now includes today's consultations, upcoming follow-ups, vaccinations due within the next 30 days (including overdue records), recently viewed pets for the current session, and pet search by ID, name, or species. Quick actions are available for pet registration and clinical records according to role. Consultations, vaccinations, and treatments are stored in the `clinical_records` collection with pet, date, veterinarian, branch, notes, and follow-up/due-date data.
+
+## Phase 12 Security and Testing
+
+Firebase Authentication protects the application entry point. The role matrix protects navigation and feature actions, while the signed-in user's `branchId` scopes clinical dashboard and document reads. Users without a branch assignment cannot view branch-scoped clinical data or upload documents.
+
+Deploy the checked-in rules before using a shared Firebase project:
+
+```bash
+firebase deploy --only firestore:rules,storage
+```
+
+The repository includes `firestore.rules`, `storage.rules`, and `firebase.json`. The test suite covers role permissions, branch assignment data, branch-filtered dashboard records, and shared protected UI states. Run it with `flutter test` on a machine with the Flutter SDK installed.
+
+## Phase 13 Final Presentation
+
+The complete demonstration flow, role matrix, security controls, validation commands, and release checklist are documented in [PRESENTATION.md](PRESENTATION.md).
