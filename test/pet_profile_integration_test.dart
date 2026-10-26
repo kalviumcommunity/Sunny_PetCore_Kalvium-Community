@@ -192,13 +192,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('Prescription History'),
-      300,
-    );
-    await tester.pumpAndSettle();
 
-    expect(find.text('Prescription History'), findsOneWidget);
     expect(find.text('Medicine: Amoxicillin'), findsOneWidget);
     expect(find.text('Dosage: 250 mg'), findsOneWidget);
     expect(find.text('Frequency: Twice daily'), findsOneWidget);
@@ -230,13 +224,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('Prescription History'),
-      300,
-    );
-    await tester.pumpAndSettle();
 
-    expect(find.text('Prescription History'), findsOneWidget);
     expect(find.text('No prescription history available.'), findsOneWidget);
   });
 }

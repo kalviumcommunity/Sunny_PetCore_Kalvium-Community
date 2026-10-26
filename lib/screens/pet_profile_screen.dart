@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/consultation_model.dart';
 import '../models/followup_model.dart';
 import '../models/owner_model.dart';
@@ -8,6 +9,7 @@ import '../models/treatment_model.dart';
 import '../models/vaccination_model.dart';
 import '../services/firestore_service.dart';
 import '../services/medical_firestore_service.dart';
+import '../widgets/pet_profile_section_card.dart';
 import 'pet_registration_screen.dart';
 
 // Pet Profile screen displaying complete pet details, owner info,
@@ -15,15 +17,23 @@ import 'pet_registration_screen.dart';
 // consultations, follow-ups, documents).
 class PetProfileScreen extends StatefulWidget {
   final PetModel pet;
-  final FirestoreService firestoreService;
-  final MedicalFirestoreService medicalFirestoreService;
+  final FirestoreService? firestoreService;
+  final MedicalFirestoreService? medicalFirestoreService;
+  final MedicalFirestoreService? medicalService;
 
   const PetProfileScreen({
     super.key,
     required this.pet,
-    required this.firestoreService,
-    required this.medicalFirestoreService,
+    this.firestoreService,
+    this.medicalFirestoreService,
+    this.medicalService,
   });
+
+  FirestoreService get effectiveFirestoreService =>
+      firestoreService ?? FirestoreService();
+
+  MedicalFirestoreService get effectiveMedicalService =>
+      medicalFirestoreService ?? medicalService ?? MedicalFirestoreService();
 
   @override
   State<PetProfileScreen> createState() => _PetProfileScreenState();
@@ -60,16 +70,19 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
     setState(() => _isLoading = true);
     try {
       final petId = _pet.petId;
+      final ownerFuture = widget.firestoreService == null
+          ? Future<OwnerModel?>.value(null)
+          : widget.firestoreService!.getOwnerById(_pet.ownerId);
 
       // Load owner and all medical records in parallel
       final results = await Future.wait([
-        widget.firestoreService.getOwnerById(_pet.ownerId),
-        widget.medicalFirestoreService.getConsultationsForPet(petId),
-        widget.medicalFirestoreService.getTreatmentsForPet(petId),
-        widget.medicalFirestoreService.getVaccinationsForPet(petId),
-        widget.medicalFirestoreService.getPrescriptionsForPet(petId),
-        widget.medicalFirestoreService.getUpcomingFollowUpsForPet(petId),
-        widget.medicalFirestoreService.getDocumentsForPet(petId),
+        ownerFuture,
+        widget.effectiveMedicalService.getConsultationsForPet(petId),
+        widget.effectiveMedicalService.getTreatmentsForPet(petId),
+        widget.effectiveMedicalService.getVaccinationsForPet(petId),
+        widget.effectiveMedicalService.getPrescriptionsForPet(petId),
+        widget.effectiveMedicalService.getUpcomingFollowUpsForPet(petId),
+        widget.effectiveMedicalService.getDocumentsForPet(petId),
       ]);
 
       if (!mounted) return;
@@ -113,14 +126,14 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => PetRegistrationScreen(
-          firestoreService: widget.firestoreService,
+          firestoreService: widget.effectiveFirestoreService,
           existingPet: _pet,
         ),
       ),
     );
     if (result == true) {
       // Refresh pet data after edit
-      final pets = await widget.firestoreService.getPets();
+      final pets = await widget.effectiveFirestoreService.getPets();
       final updated = pets.firstWhere(
         (p) => p.id == _pet.id,
         orElse: () => _pet,
@@ -186,6 +199,78 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                     _buildMedicalSummary(theme),
                     const SizedBox(height: 24),
 
+                    // ── Prescription History Card ──
+                    PetProfileSectionCard(
+                      key: const ValueKey('pet-profile-prescription-history-card'),
+                      title: 'Prescription History',
+                      icon: Icons.receipt_long,
+                      count: _prescriptionCount,
+                      emptyMessage: 'No prescription history available.',
+                      items: _recentPrescriptions.isEmpty
+                          ? const []
+                          : _recentPrescriptions.map((prescription) {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Medicine: ${prescription.medicine}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text('Dosage: ${prescription.dosage}'),
+                                    Text(
+                                      'Frequency: ${prescription.frequency}',
+                                    ),
+                                    Text('Duration: ${prescription.duration}'),
+                                    Text(
+                                      'Instructions: ${prescription.instructions}',
+                                    ),
+                                    Text(
+                                      'Date: ${DateFormat.yMMMd().format(prescription.createdAt)}',
+                                    ),
+                                    Text(
+                                      'Veterinarian: ${prescription.vetId}',
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── Follow-up Plan Card ──
+                    PetProfileSectionCard(
+                      key: const ValueKey('pet-profile-followup-card'),
+                      title: 'Follow-up plan',
+                      icon: Icons.event,
+                      count: _followUpCount,
+                      emptyMessage: 'No follow-up plan scheduled.',
+                      items: _pendingFollowUps.isEmpty
+                          ? const []
+                          : _pendingFollowUps.map((followUp) {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: const Icon(Icons.event_available),
+                                  title: Text(
+                                    'Follow-up ${followUp.relatedRecordType}',
+                                  ),
+                                  subtitle: Text(
+                                    '${followUp.notes.isNotEmpty ? '${followUp.notes}\n' : ''}'
+                                    'Date: ${_formatDate(followUp.followUpDate)}\n'
+                                    'Status: ${followUp.status}',
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+
                     // ── Recent Vaccinations ──
                     if (_recentVaccinations.isNotEmpty) ...[
                       _buildSectionHeader(
@@ -230,37 +315,6 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                             date: _formatDate(t.createdAt),
                             icon: Icons.healing,
                             color: Colors.orange,
-                          )),
-                      const SizedBox(height: 16),
-                    ],
-
-                    // ── Recent Prescriptions ──
-                    if (_recentPrescriptions.isNotEmpty) ...[
-                      _buildSectionHeader(
-                          theme, 'Prescriptions', Icons.receipt_long,
-                          count: _prescriptionCount),
-                      ..._recentPrescriptions.map((p) => _buildRecordTile(
-                            title: p.medicine,
-                            subtitle:
-                                'Dosage: ${p.dosage} • ${p.frequency}\nDuration: ${p.duration}',
-                            date: _formatDate(p.createdAt),
-                            icon: Icons.receipt_long,
-                            color: Colors.purple,
-                          )),
-                      const SizedBox(height: 16),
-                    ],
-
-                    // ── Pending Follow-ups ──
-                    if (_pendingFollowUps.isNotEmpty) ...[
-                      _buildSectionHeader(
-                          theme, 'Pending Follow-ups', Icons.event,
-                          count: _followUpCount),
-                      ..._pendingFollowUps.map((f) => _buildRecordTile(
-                            title: 'Follow-up (${f.relatedRecordType})',
-                            subtitle: f.notes,
-                            date: _formatDate(f.followUpDate),
-                            icon: Icons.event,
-                            color: Colors.teal,
                           )),
                       const SizedBox(height: 16),
                     ],

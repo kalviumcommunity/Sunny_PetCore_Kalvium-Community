@@ -125,6 +125,15 @@ class FirestoreService {
     }).toList();
   }
 
+  bool _looksLikePhoneQuery(String query) {
+    final digits = query.replaceAll(RegExp(r'\D'), '');
+    return digits.length >= 4;
+  }
+
+  String _normalizePhone(String value) {
+    return value.replaceAll(RegExp(r'\D'), '').toLowerCase();
+  }
+
   // Generate the next unique Pet ID (PET-001, PET-002, ...)
   Future<String> getNextPetId() async {
     final snapshot = await petsCollection.get();
