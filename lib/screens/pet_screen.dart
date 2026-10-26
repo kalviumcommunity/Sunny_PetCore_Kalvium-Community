@@ -65,15 +65,6 @@ class _PetScreenState extends State<PetScreen> {
     ).then((_) => _fetchPets());
   }
 
-  void _openPetProfile(PetModel pet) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => PetProfileScreen(pet: pet),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
