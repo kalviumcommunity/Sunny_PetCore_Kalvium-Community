@@ -12,6 +12,7 @@ import '../models/vaccination_model.dart';
 import '../services/firestore_service.dart';
 import '../services/medical_firestore_service.dart';
 import '../widgets/pet_profile_section_card.dart';
+import 'medical_history_screen.dart';
 import 'pet_registration_screen.dart';
 
 // Pet Profile screen displaying complete pet details, owner info,
@@ -206,6 +207,18 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
             tooltip: 'Edit Pet',
             onPressed: _editPet,
             icon: const Icon(Icons.edit),
+          ),
+          IconButton(
+            tooltip: 'View Medical History',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MedicalHistoryScreen(petId: _pet.petId),
+                ),
+              );
+            },
+            icon: const Icon(Icons.history),
           ),
         ],
       ),
