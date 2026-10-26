@@ -11,9 +11,11 @@ import '../services/auth_service.dart';
 import '../services/branch_service.dart';
 import '../services/dashboard_data_service.dart';
 import '../services/firestore_service.dart';
+import '../services/medical_firestore_service.dart';
 import 'branch_management_screen.dart';
 import 'clinical_record_dialog.dart';
 import 'owner_screen.dart';
+import 'pet_profile_screen.dart';
 import 'pet_screen.dart';
 import 'user_management_screen.dart';
 
@@ -47,6 +49,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _recentPets.insert(0, pet);
       if (_recentPets.length > 5) _recentPets.removeLast();
     });
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PetProfileScreen(
+          pet: pet,
+          firestoreService: widget.firestoreService,
+          medicalFirestoreService: MedicalFirestoreService(),
+        ),
+      ),
+    );
   }
 
   @override
@@ -122,7 +135,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onRegisterPet: () => setState(() => _currentIndex = petScreenIndex!),
       );
     }
-
 
     return Scaffold(
       appBar: AppBar(
