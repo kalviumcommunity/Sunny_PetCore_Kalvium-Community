@@ -4,22 +4,26 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_model.dart';
 
 class AuthService {
-  final FirebaseAuth _auth;
-  final FirebaseFirestore _db;
+  final FirebaseAuth? _auth;
+  final FirebaseFirestore? _db;
 
   AuthService({FirebaseAuth? auth, FirebaseFirestore? firestore})
       : _auth = auth ?? FirebaseAuth.instance,
         _db = firestore ?? FirebaseFirestore.instance;
 
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
+  AuthService.demo({FirebaseFirestore? firestore})
+      : _auth = null,
+        _db = firestore;
 
-  User? get currentUser => _auth.currentUser;
+  Stream<User?> get authStateChanges => _auth?.authStateChanges() ?? const Stream.empty();
+
+  User? get currentUser => _auth?.currentUser;
 
   Future<UserModel> signIn({
     required String email,
     required String password,
   }) async {
-    final credential = await _auth.signInWithEmailAndPassword(
+    final credential = await _auth!.signInWithEmailAndPassword(
       email: email.trim(),
       password: password,
     );
@@ -33,7 +37,7 @@ class AuthService {
   }
 
   Future<UserModel> getOrCreateUserProfile(User firebaseUser) async {
-    final reference = _db.collection('users').doc(firebaseUser.uid);
+    final reference = _db!.collection('users').doc(firebaseUser.uid);
     final snapshot = await reference.get();
 
     if (snapshot.exists && snapshot.data() != null) {
@@ -52,7 +56,7 @@ class AuthService {
   }
 
   Future<UserModel?> getUserProfile(String userId) async {
-    final snapshot = await _db.collection('users').doc(userId).get();
+    final snapshot = await _db!.collection('users').doc(userId).get();
     final data = snapshot.data();
     return snapshot.exists && data != null
         ? UserModel.fromMap(data, snapshot.id)
@@ -60,20 +64,20 @@ class AuthService {
   }
 
   Future<List<UserModel>> getUserProfiles() async {
-    final snapshot = await _db.collection('users').orderBy('email').get();
+    final snapshot = await _db!.collection('users').orderBy('email').get();
     return snapshot.docs
         .map((doc) => UserModel.fromMap(doc.data(), doc.id))
         .toList();
   }
 
   Future<void> updateUserProfile(UserModel user) async {
-    await _db.collection('users').doc(user.id).set(user.toMap());
+    await _db!.collection('users').doc(user.id).set(user.toMap());
 
-    if (_auth.currentUser?.uid == user.id &&
-        _auth.currentUser?.displayName != user.name) {
-      await _auth.currentUser?.updateDisplayName(user.name);
+    if (_auth?.currentUser?.uid == user.id &&
+        _auth?.currentUser?.displayName != user.name) {
+      await _auth?.currentUser?.updateDisplayName(user.name);
     }
   }
 
-  Future<void> signOut() => _auth.signOut();
+  Future<void> signOut() => _auth!.signOut();
 }

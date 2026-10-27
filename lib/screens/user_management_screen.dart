@@ -9,7 +9,7 @@ import '../services/branch_service.dart';
 
 class UserManagementScreen extends StatefulWidget {
   final AuthService authService;
-  final User firebaseUser;
+  final User? firebaseUser;
   final UserModel currentUser;
   final BranchService branchService;
 
@@ -114,7 +114,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   ),
                   isThreeLine: true,
                   trailing: IconButton(
-                    tooltip: user.id == widget.firebaseUser.uid
+                    tooltip: user.id == widget.firebaseUser?.uid
                         ? 'Edit your profile'
                         : 'Edit user',
                     onPressed: () => _editProfile(user),
