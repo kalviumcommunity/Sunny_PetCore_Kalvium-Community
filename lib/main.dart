@@ -7,9 +7,16 @@ import 'screens/setup_error_screen.dart';
 import 'services/auth_service.dart';
 import 'services/branch_service.dart';
 import 'services/firestore_service.dart';
+import 'screens/demo_auth_gate.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  const demoMode = true;
+  if (demoMode) {
+    runApp(const PetCoreApp(demoMode: true));
+    return;
+  }
 
   try {
     await Firebase.initializeApp(
@@ -32,6 +39,7 @@ class PetCoreApp extends StatelessWidget {
   final BranchService? branchService;
   final FirestoreService? firestoreService;
   final String? initializationError;
+  final bool demoMode;
 
   const PetCoreApp({
     super.key,
@@ -39,6 +47,7 @@ class PetCoreApp extends StatelessWidget {
     this.branchService,
     this.firestoreService,
     this.initializationError,
+    this.demoMode = true,
   });
 
   @override
@@ -89,6 +98,8 @@ class PetCoreApp extends StatelessWidget {
       ),
       home: initializationError != null
           ? SetupErrorScreen(error: initializationError!)
+          : demoMode
+            ? const DemoAuthGate()
           : AuthGate(
               authService: authService!,
               branchService: branchService!,

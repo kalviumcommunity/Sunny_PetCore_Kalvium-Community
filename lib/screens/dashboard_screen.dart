@@ -22,8 +22,9 @@ class DashboardScreen extends StatefulWidget {
   final AuthService authService;
   final BranchService branchService;
   final FirestoreService firestoreService;
-  final User firebaseUser;
+  final User? firebaseUser;
   final UserModel userProfile;
+  final VoidCallback? onSignedOut;
 
   const DashboardScreen({
     super.key,
@@ -32,6 +33,7 @@ class DashboardScreen extends StatefulWidget {
     required this.firestoreService,
     required this.firebaseUser,
     required this.userProfile,
+    this.onSignedOut,
   });
 
   @override
@@ -144,7 +146,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         actions: [
           IconButton(
             tooltip: 'Sign out',
-            onPressed: widget.authService.signOut,
+            onPressed: () async {
+              await widget.authService.signOut();
+              widget.onSignedOut?.call();
+            },
             icon: const Icon(Icons.logout),
           ),
         ],

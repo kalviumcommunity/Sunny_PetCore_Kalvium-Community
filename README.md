@@ -58,6 +58,18 @@ firebase deploy --only firestore:rules,storage
 
 The repository includes `firestore.rules`, `storage.rules`, and `firebase.json`. The test suite covers role permissions, branch assignment data, branch-filtered dashboard records, and shared protected UI states. Run it with `flutter test` on a machine with the Flutter SDK installed.
 
+## Local Showcase Mode
+
+`lib/main.dart` currently has `demoMode` enabled so the app can run without Firebase for a local showcase. It uses in-memory Firestore data and these development-only accounts:
+
+| Role | Email | Password |
+| --- | --- | --- |
+| Admin | `admin@petcore.local` | `PetCoreAdmin2026!` |
+| Veterinarian | `vet@petcore.local` | `PetCoreVet2026!` |
+| Clinic staff | `staff@petcore.local` | `PetCoreStaff2026!` |
+
+Set `demoMode` to `false` in `lib/main.dart` to restore the Firebase startup flow. Never use these credentials in production.
+
 ## Phase 13 Final Presentation
 
 The complete demonstration flow, role matrix, security controls, validation commands, and release checklist are documented in [PRESENTATION.md](PRESENTATION.md).
