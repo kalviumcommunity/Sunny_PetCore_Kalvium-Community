@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
+
+import 'firebase_options.dart';
 import 'screens/auth_gate.dart';
 import 'screens/setup_error_screen.dart';
 import 'services/auth_service.dart';
@@ -10,7 +12,9 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
     runApp(
       PetCoreApp(
         authService: AuthService(),

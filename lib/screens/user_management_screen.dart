@@ -207,47 +207,47 @@ class _EditUserDialogState extends State<_EditUserDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-            TextFormField(
-              controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Name'),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String?>(
-              value: _branchId,
-              decoration: const InputDecoration(labelText: 'Branch'),
-              items: [
-                const DropdownMenuItem<String?>(
-                  value: null,
-                  child: Text('Unassigned'),
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(labelText: 'Name'),
                 ),
-                ...branches
-                    .where((branch) => branch.isActive)
-                    .map((branch) => DropdownMenuItem<String?>(
-                          value: branch.id,
-                          child: Text(branch.name),
-                        )),
-              ],
-              onChanged: (value) => setState(() => _branchId = value),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: _role,
-              decoration: const InputDecoration(labelText: 'Role'),
-              items: const [
-                DropdownMenuItem(value: 'ADMIN', child: Text('ADMIN')),
-                DropdownMenuItem(
-                  value: 'VETERINARIAN',
-                  child: Text('VETERINARIAN'),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String?>(
+                  initialValue: _branchId,
+                  decoration: const InputDecoration(labelText: 'Branch'),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('Unassigned'),
+                    ),
+                    ...branches
+                        .where((branch) => branch.isActive)
+                        .map((branch) => DropdownMenuItem<String?>(
+                              value: branch.id,
+                              child: Text(branch.name),
+                            )),
+                  ],
+                  onChanged: (value) => setState(() => _branchId = value),
                 ),
-                DropdownMenuItem(
-                  value: 'CLINIC STAFF',
-                  child: Text('CLINIC STAFF'),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: _role,
+                  decoration: const InputDecoration(labelText: 'Role'),
+                  items: const [
+                    DropdownMenuItem(value: 'ADMIN', child: Text('ADMIN')),
+                    DropdownMenuItem(
+                      value: 'VETERINARIAN',
+                      child: Text('VETERINARIAN'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'CLINIC STAFF',
+                      child: Text('CLINIC STAFF'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) setState(() => _role = value);
+                  },
                 ),
-              ],
-              onChanged: (value) {
-                if (value != null) setState(() => _role = value);
-              },
-            ),
               ],
             ),
           );

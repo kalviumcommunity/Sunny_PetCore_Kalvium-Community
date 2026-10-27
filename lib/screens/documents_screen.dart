@@ -113,7 +113,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: DropdownButtonFormField<String>(
-              value: _documentType,
+              initialValue: _documentType,
               decoration: const InputDecoration(
                 labelText: 'Document Type',
                 prefixIcon: Icon(Icons.category_outlined),
