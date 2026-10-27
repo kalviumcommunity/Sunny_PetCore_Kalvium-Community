@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -156,7 +156,8 @@ class MedicalFirestoreService {
   }
 
   Future<DocumentModel> uploadDocument(
-    File file,
+    Uint8List fileBytes,
+    String fileName,
     String petId,
     String documentType, {
     void Function(double progress)? onProgress,
@@ -166,13 +167,14 @@ class MedicalFirestoreService {
 
     final userSnapshot = await _db.collection('users').doc(user.uid).get();
     final branchId = userSnapshot.data()?['branchId'] as String? ?? '';
-    final fileName = file.uri.pathSegments.last.replaceAll(
-      RegExp(r'[/\\]'),
-      '_',
-    );
-    if (fileName.isEmpty) throw ArgumentError('The selected file has no name');
+    final safeFileName = fileName.replaceAll(RegExp(r'[/\\]'), '_');
+    if (safeFileName.isEmpty) {
+      throw ArgumentError('The selected file has no name');
+    }
 
-    final uploadTask = _storage.ref('documents/$petId/$fileName').putFile(file);
+    final uploadTask = _storage
+      .ref('documents/$branchId/$petId/$safeFileName')
+        .putData(fileBytes);
     final progressSubscription = uploadTask.snapshotEvents.listen((snapshot) {
       if (snapshot.totalBytes > 0) {
         onProgress?.call(snapshot.bytesTransferred / snapshot.totalBytes);
@@ -188,7 +190,7 @@ class MedicalFirestoreService {
 
     final document = DocumentModel(
       petId: petId,
-      fileName: fileName,
+      fileName: safeFileName,
       fileUrl: await uploadSnapshot.ref.getDownloadURL(),
       uploadedBy: user.uid,
       branchId: branchId,
@@ -208,9 +210,16 @@ class MedicalFirestoreService {
     );
   }
 
-  Future<List<DocumentModel>> getDocumentsForPet(String petId) async {
-    final snapshot =
-        await documentsCollection.where('petId', isEqualTo: petId).get();
+  Future<List<DocumentModel>> getDocumentsForPet(
+    String petId, {
+    String? branchId,
+  }) async {
+    final query = branchId == null
+        ? documentsCollection.where('petId', isEqualTo: petId)
+        : documentsCollection
+            .where('petId', isEqualTo: petId)
+            .where('branchId', isEqualTo: branchId);
+    final snapshot = await query.get();
     final documents = snapshot.docs.map((doc) {
       return DocumentModel.fromMap(
         doc.data() as Map<String, dynamic>,

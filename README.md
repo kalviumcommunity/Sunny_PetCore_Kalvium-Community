@@ -27,3 +27,37 @@ Login validates required fields locally and displays specific feedback for inval
 ## Phase 3 User Management
 
 After authentication, PetCore creates a `users/{uid}` profile containing the user's name, email, role, and branch ID. The protected Users screen lists stored profiles and lets the signed-in user update their name, role, and branch assignment. Role-based restrictions are intentionally reserved for Phase 4.
+
+## Phase 4 Role-Based Access Control
+
+The supported roles are `ADMIN`, `VETERINARIAN`, and `CLINIC STAFF`. Access is least-privilege by default:
+
+- `ADMIN`: Dashboard, owners, pets, and user management.
+- `VETERINARIAN`: Dashboard and pets.
+- `CLINIC STAFF`: Dashboard, owners, and pets.
+
+Unknown or unassigned roles only receive the dashboard and cannot access operational screens. The Users screen also checks the role itself, so hiding its navigation item is not the only protection.
+
+## Phase 5 Branch Management
+
+Administrators can add, view, edit, and deactivate branches from the protected Branches screen. Each branch stores a name, address, phone number, and active status in the `branches` collection. User profiles are assigned to active branches through a branch selector, and the authenticated user's assigned branch is shown on the dashboard.
+
+## Phase 6 Dashboard Foundation
+
+The dashboard now includes today's consultations, upcoming follow-ups, vaccinations due within the next 30 days (including overdue records), recently viewed pets for the current session, and pet search by ID, name, or species. Quick actions are available for pet registration and clinical records according to role. Consultations, vaccinations, and treatments are stored in the `clinical_records` collection with pet, date, veterinarian, branch, notes, and follow-up/due-date data.
+
+## Phase 12 Security and Testing
+
+Firebase Authentication protects the application entry point. The role matrix protects navigation and feature actions, while the signed-in user's `branchId` scopes clinical dashboard and document reads. Users without a branch assignment cannot view branch-scoped clinical data or upload documents.
+
+Deploy the checked-in rules before using a shared Firebase project:
+
+```bash
+firebase deploy --only firestore:rules,storage
+```
+
+The repository includes `firestore.rules`, `storage.rules`, and `firebase.json`. The test suite covers role permissions, branch assignment data, branch-filtered dashboard records, and shared protected UI states. Run it with `flutter test` on a machine with the Flutter SDK installed.
+
+## Phase 13 Final Presentation
+
+The complete demonstration flow, role matrix, security controls, validation commands, and release checklist are documented in [PRESENTATION.md](PRESENTATION.md).

@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'screens/auth_gate.dart';
 import 'screens/setup_error_screen.dart';
 import 'services/auth_service.dart';
+import 'services/branch_service.dart';
 import 'services/firestore_service.dart';
 
 void main() async {
@@ -13,6 +14,7 @@ void main() async {
     runApp(
       PetCoreApp(
         authService: AuthService(),
+        branchService: BranchService(),
         firestoreService: FirestoreService(),
       ),
     );
@@ -23,12 +25,14 @@ void main() async {
 
 class PetCoreApp extends StatelessWidget {
   final AuthService? authService;
+  final BranchService? branchService;
   final FirestoreService? firestoreService;
   final String? initializationError;
 
   const PetCoreApp({
     super.key,
     this.authService,
+    this.branchService,
     this.firestoreService,
     this.initializationError,
   });
@@ -39,13 +43,51 @@ class PetCoreApp extends StatelessWidget {
       title: 'PetCore',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.teal,
+          brightness: Brightness.light,
+        ),
         useMaterial3: true,
+        appBarTheme: const AppBarTheme(
+          centerTitle: false,
+          elevation: 0,
+        ),
+        cardTheme: CardThemeData(
+          elevation: 0,
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: Color(0xFFE0F2F1)),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          filled: true,
+          fillColor: Colors.white,
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            minimumSize: const Size.fromHeight(48),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        ),
+        floatingActionButtonTheme: FloatingActionButtonThemeData(
+          backgroundColor: Colors.teal.shade700,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+        ),
       ),
       home: initializationError != null
           ? SetupErrorScreen(error: initializationError!)
           : AuthGate(
               authService: authService!,
+              branchService: branchService!,
               firestoreService: firestoreService!,
             ),
     );
