@@ -21,6 +21,7 @@ class DocumentsScreen extends StatefulWidget {
 }
 
 class _DocumentsScreenState extends State<DocumentsScreen> {
+  static const _maxUploadBytes = 10 * 1024 * 1024;
   static const _documentTypes = [
     'Blood Report',
     'X-Ray',
@@ -91,6 +92,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
           backgroundColor: Colors.green,
         ),
       );
+      setState(() => _documentsFuture = _loadDocuments());
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
