@@ -1,3 +1,4 @@
+import '../models/clinical_record_model.dart';
 import '../models/dashboard_data.dart';
 import 'firestore_service.dart';
 
