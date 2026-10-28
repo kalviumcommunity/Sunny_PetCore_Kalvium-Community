@@ -67,4 +67,20 @@ class OwnerModel {
       createdAt: createdAt ?? this.createdAt,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is OwnerModel &&
+          runtimeType == other.runtimeType &&
+          ((id != null && other.id != null && id == other.id) ||
+              (id == null &&
+                  other.id == null &&
+                  name == other.name &&
+                  phone == other.phone &&
+                  email == other.email));
+
+  @override
+  int get hashCode =>
+      id != null ? id.hashCode : Object.hash(name, phone, email);
 }
