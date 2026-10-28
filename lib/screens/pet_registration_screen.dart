@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/owner_model.dart';
 import '../models/pet_model.dart';
 import '../services/firestore_service.dart';
+import 'owner_registration_screen.dart';
 
 // Pet Registration / Edit form screen with validation, auto Pet ID generation,
 // owner linking, and Firestore integration.
@@ -81,10 +82,10 @@ class _PetRegistrationScreenState extends State<PetRegistrationScreen> {
         _owners = owners;
         _isLoadingOwners = false;
         _isLoadingId = false;
-        _selectedOwner = owners.firstWhere(
-          (o) => o.id == pet.ownerId,
-          orElse: () => owners.first,
-        );
+        if (owners.isNotEmpty) {
+          final matched = owners.where((o) => o.id == pet.ownerId);
+          _selectedOwner = matched.isNotEmpty ? matched.first : owners.first;
+        }
       });
     } else {
       // Create mode: generate Pet ID and load owners
@@ -94,20 +95,70 @@ class _PetRegistrationScreenState extends State<PetRegistrationScreen> {
       ]);
 
       if (!mounted) return;
+      final fetchedOwners = results[1] as List<OwnerModel>;
       setState(() {
         _generatedPetId = results[0] as String;
         _isLoadingId = false;
-        _owners = results[1] as List<OwnerModel>;
+        _owners = fetchedOwners;
         _isLoadingOwners = false;
 
         // Pre-select owner if provided
         if (widget.preSelectedOwner != null) {
-          _selectedOwner = _owners.firstWhere(
-            (o) => o.id == widget.preSelectedOwner!.id,
-            orElse: () => widget.preSelectedOwner!,
-          );
+          final matched =
+              _owners.where((o) => o.id == widget.preSelectedOwner!.id);
+          if (matched.isNotEmpty) {
+            _selectedOwner = matched.first;
+          } else {
+            _owners.add(widget.preSelectedOwner!);
+            _selectedOwner = widget.preSelectedOwner;
+          }
         }
       });
+    }
+  }
+
+  Future<void> _navigateToAddOwner() async {
+    final previousIds = _owners.map((o) => o.id).toSet();
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OwnerRegistrationScreen(
+          firestoreService: widget.firestoreService,
+        ),
+      ),
+    );
+
+    if (result == true) {
+      setState(() => _isLoadingOwners = true);
+      final updatedOwners = await widget.firestoreService.getActiveOwners();
+      if (!mounted) return;
+
+      OwnerModel? newlyCreated;
+      final newItems =
+          updatedOwners.where((o) => !previousIds.contains(o.id)).toList();
+      if (newItems.isNotEmpty) {
+        newlyCreated = newItems.first;
+      } else if (updatedOwners.isNotEmpty) {
+        newlyCreated = updatedOwners.last;
+      }
+
+      setState(() {
+        _owners = updatedOwners;
+        _isLoadingOwners = false;
+        if (newlyCreated != null) {
+          _selectedOwner = newlyCreated;
+        }
+      });
+
+      if (newlyCreated != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Owner registered and selected: ${newlyCreated.name}'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
@@ -247,24 +298,122 @@ class _PetRegistrationScreenState extends State<PetRegistrationScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // 1. Owner selection dropdown
-                    DropdownButtonFormField<OwnerModel>(
-                      initialValue: _selectedOwner,
-                      decoration: const InputDecoration(
-                        labelText: 'Owner',
-                        prefixIcon: Icon(Icons.person),
-                        border: OutlineInputBorder(),
-                      ),
-                      items: _owners.map((owner) {
-                        return DropdownMenuItem(
-                          value: owner,
-                          child: Text('${owner.name} (${owner.phone})'),
-                        );
-                      }).toList(),
-                      onChanged: (val) => setState(() => _selectedOwner = val),
-                      validator: (val) =>
-                          val == null ? 'Please select an owner' : null,
+                    // 1. Owner selection dropdown with Add Owner button
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<OwnerModel>(
+                            key: ValueKey(
+                              'owner_dropdown_${_selectedOwner?.id ?? "none"}_${_owners.length}',
+                            ),
+                            initialValue: _selectedOwner != null &&
+                                    _owners.any((o) => o.id == _selectedOwner!.id)
+                                ? _owners.firstWhere(
+                                    (o) => o.id == _selectedOwner!.id)
+                                : null,
+                            decoration: InputDecoration(
+                              labelText: 'Owner',
+                              prefixIcon: const Icon(Icons.person),
+                              border: const OutlineInputBorder(),
+                              helperText: _isLoadingOwners
+                                  ? 'Loading owners...'
+                                  : (_owners.isEmpty
+                                      ? 'No owners found'
+                                      : null),
+                            ),
+                            isExpanded: true,
+                            hint: Text(_isLoadingOwners
+                                ? 'Loading owners...'
+                                : (_owners.isEmpty
+                                    ? 'No owners found'
+                                    : 'Select Owner')),
+                            items: _owners.map((owner) {
+                              return DropdownMenuItem(
+                                value: owner,
+                                child: Text(
+                                  '${owner.name} (${owner.phone})',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (val) =>
+                                setState(() => _selectedOwner = val),
+                            validator: (val) =>
+                                val == null ? 'Please select an owner' : null,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Tooltip(
+                          message: 'Register New Owner',
+                          child: SizedBox(
+                            height: 56,
+                            child: OutlinedButton.icon(
+                              onPressed: _navigateToAddOwner,
+                              icon: const Icon(Icons.person_add, size: 18),
+                              label: const Text('Add'),
+                              style: OutlinedButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
+                    if (!_isLoadingOwners && _owners.isEmpty) ...[
+                      const SizedBox(height: 8),
+                      InkWell(
+                        onTap: _navigateToAddOwner,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .primaryContainer
+                                .withValues(alpha: 0.4),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primary
+                                  .withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                size: 18,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'No owners registered yet. Tap here to add an owner first.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              Icon(
+                                Icons.arrow_forward_ios,
+                                size: 12,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
 
                     // 2. Pet Name

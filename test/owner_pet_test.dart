@@ -10,6 +10,7 @@ import 'package:petcore/models/user_model.dart';
 import 'package:petcore/services/branch_service.dart';
 import 'package:petcore/services/dashboard_data_service.dart';
 import 'package:petcore/services/firestore_service.dart';
+import 'package:petcore/screens/pet_registration_screen.dart';
 import 'package:petcore/widgets/petcore_ui.dart';
 
 void main() {
@@ -354,5 +355,20 @@ void main() {
     expect(phoneResults.single.name, 'Milo');
 
     expect((await firestoreService.searchPets('')).isEmpty, isTrue);
+  });
+
+  testWidgets('PetRegistrationScreen renders Add Owner button and no-owners banner when empty', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PetRegistrationScreen(
+          firestoreService: firestoreService,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Add'), findsOneWidget);
+    expect(find.byIcon(Icons.person_add), findsOneWidget);
+    expect(find.text('No owners registered yet. Tap here to add an owner first.'), findsOneWidget);
   });
 }
